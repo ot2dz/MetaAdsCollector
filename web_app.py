@@ -26,6 +26,10 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Flask, Response, jsonify, render_template, request, send_file
 from flask_cors import CORS
 

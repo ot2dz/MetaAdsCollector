@@ -4,3 +4,4 @@ flask-cors>=3.0.0
 googlesearch-python>=1.2.3
 psycopg2-binary>=2.9.0
 curl_cffi>=0.7.0
+python-dotenv>=1.0.0
