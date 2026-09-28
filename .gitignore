@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+sdist/
+wheels/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# Type checking
+.mypy_cache/
+
+# Linting
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# OS artifacts
+NUL
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Output data
+*.json
+!.github/**/*.json
+*.csv
+*.jsonl
+output/
+ad_media/
+
+# SQLite state files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log

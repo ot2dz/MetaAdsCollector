@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meta Ads Collector Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Cairo & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cairo', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .badge-platform {
+      @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans bg-slate-950 text-slate-100 overflow-hidden">
+
+  <!-- Top Navigation Header -->
+  <header class="h-16 border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 flex items-center justify-between z-20 flex-shrink-0">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white flex items-center gap-2">
+            Meta Ads Intelligence
+            <span class="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono">Algeria 🇩🇿</span>
+          </h1>
+          <p class="text-xs text-slate-400">منصة سحب وتحليل إعلانات المنافسين وكشف المنتجات الرابحة</p>
+        </div>
+      </div>
+
+      <!-- Simple Badge -->
+      <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>وضع البحث السريع والخفيف</span>
+      </div>
+    </div>
+
+    <!-- Live Status Indicators -->
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2">
+        <div class="text-center">
+          <div class="text-xs text-slate-400">الإعلانات</div>
+          <div id="stat-ads" class="text-base font-bold text-blue-400 font-mono">0</div>
+        </div>
+        <div class="w-px h-6 bg-slate-800"></div>
+        <div class="text-center">
+          <div class="text-xs text-slate-400">الصفحات</div>
+          <div id="stat-pages" class="text-base font-bold text-indigo-400 font-mono">0</div>
+        </div>
+        <div class="w-px h-6 bg-slate-800"></div>
+        <div class="text-center">
+          <div class="text-xs text-slate-400">السرعة</div>
+          <div id="stat-speed" class="text-base font-bold text-emerald-400 font-mono">0.0 /ث</div>
+        </div>
+        <div class="w-px h-6 bg-slate-800"></div>
+        <div class="text-center">
+          <div class="text-xs text-slate-400">الوقت</div>
+          <div id="stat-time" class="text-base font-bold text-amber-400 font-mono">00:00</div>
+        </div>
+      </div>
+
+      <!-- Action status badge -->
+      <div id="status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+        <span id="status-text">جاهز</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Collector Layout -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Sidebar: Search & Config Controls -->
+    <aside class="w-96 border-l border-slate-800 bg-slate-900/60 p-5 flex flex-col gap-4 overflow-y-auto flex-shrink-0">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <span class="text-sm font-bold text-slate-200">إعدادات الجمع والبحث</span>
+        <button id="btn-page-search-modal" class="text-xs text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
+          🔍 بحث عن صفحة بالاسم
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- Search Query -->
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">كلمة البحث (Query)</label>
+          <input type="text" id="cfg-query" placeholder="مثال: عقارات، ملابس، كورس..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+        </div>
+
+        <!-- Country & Ad Type -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">الدولة المستهدفة</label>
+            <div class="w-full bg-slate-950/80 border border-emerald-500/40 rounded-lg px-3 py-2 text-sm text-emerald-400 font-bold flex items-center justify-between">
+              <span>🇩🇿 الجزائر (DZ)</span>
+              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">مثبت</span>
+            </div>
+            <input type="hidden" id="cfg-country" value="DZ">
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">نوع الإعلان (Type)</label>
+            <select id="cfg-ad-type" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+              <option value="ALL" selected>الكل (تجاري)</option>
+              <option value="POLITICAL_AND_ISSUE_ADS">سياسي / قضايا</option>
+              <option value="HOUSING_ADS">عقارات وإسكان</option>
+              <option value="EMPLOYMENT_ADS">وظائف وتوظيف</option>
+              <option value="CREDIT_ADS">قروض وائتمان</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Status & Search Type -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">حالة الإعلان</label>
+            <select id="cfg-status" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+              <option value="ACTIVE" selected>نشط حالياً (Active)</option>
+              <option value="INACTIVE">متوقف (Inactive)</option>
+              <option value="ALL">الكل</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">نمط البحث</label>
+            <select id="cfg-search-type" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+              <option value="KEYWORD_UNORDERED" selected>كلمات مفتاحية</option>
+              <option value="KEYWORD_EXACT_PHRASE">جملة مطابقة تماماً</option>
+              <option value="PAGE">بحث بصفحة محددة</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Smart Incremental Tracking Card -->
+        <div class="p-3 bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-500/30 rounded-xl space-y-2">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" id="cfg-incremental" class="mt-1 rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0">
+            <div>
+              <span class="block text-sm font-bold text-blue-300">🔄 الوضع التراكمي الذكي (سحب الجديد فقط)</span>
+              <span class="block text-[11px] text-slate-400 leading-relaxed mt-0.5">يتوقف السحب تلقائياً بمجرد الوصول لإعلانات تم سحبها مسبقاً لحفظ البروكسي والوقت.</span>
+            </div>
+          </label>
+          <div id="incremental-options" class="hidden pt-2 border-t border-blue-500/20 flex items-center justify-between text-[11px]">
+            <span class="text-slate-400">توقف بعد تكرار:</span>
+            <div class="flex items-center gap-1.5">
+              <input type="number" id="cfg-max-seen" value="15" min="3" max="50" class="w-14 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-center font-mono text-white">
+              <span class="text-slate-500">إعلان قديم</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Page IDs -->
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">معرّف الصفحة (Page ID) <span class="text-slate-500 font-normal">- اختياري</span></label>
+          <input type="text" id="cfg-page-ids" placeholder="مثال: 1234567890 (مفصولة بفاصلة)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+        </div>
+
+        <!-- Max Results & Delay -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">الحد الأقصى للإعلانات</label>
+            <input type="number" id="cfg-max-results" value="50" min="1" max="10000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">التأخير بين الطلبات (ثوانٍ)</label>
+            <input type="number" id="cfg-delay" value="2.0" step="0.5" min="0.5" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+          </div>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="pt-2 border-t border-slate-800">
+          <label class="block text-slate-300 font-semibold mb-2">فلاتر محتوى وسائط</label>
+          <div class="grid grid-cols-2 gap-2 text-slate-300">
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-950 p-2 rounded border border-slate-800 hover:border-slate-700">
+              <input type="checkbox" id="cfg-has-video" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span>فيديو فقط</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-950 p-2 rounded border border-slate-800 hover:border-slate-700">
+              <input type="checkbox" id="cfg-has-image" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span>صور فقط</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Proxies textarea -->
+        <div class="pt-2 border-t border-slate-800">
+          <label class="block text-slate-300 font-semibold mb-1">البروكسيات (Proxy Pool) <span class="text-slate-500 font-normal">- اختياري</span></label>
+          <textarea id="cfg-proxy" rows="2" placeholder="host:port أو host:port:user:pass (سطر لكل بروكسي)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-blue-500 transition"></textarea>
+        </div>
+      </div>
+
+      <!-- Start/Stop Action Buttons -->
+      <div class="pt-4 border-t border-slate-800 flex gap-2 mt-auto">
+        <button id="btn-start" onclick="startCollection()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          بدء السحب
+        </button>
+
+        <button id="btn-stop" onclick="stopCollection()" disabled class="bg-rose-600/20 text-rose-400 border border-rose-600/30 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+
+      <!-- View Selector and Export Toolbar -->
+      <div class="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/40 flex-shrink-0">
+        <!-- View Tabs -->
+        <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-semibold">
+          <button onclick="switchTab('cards')" id="tab-btn-cards" class="px-3 py-1.5 rounded-md bg-blue-600 text-white transition">
+            🎴 شبكة البطاقات (<span id="count-tab-cards">0</span>)
+          </button>
+          <button onclick="switchTab('table')" id="tab-btn-table" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
+            📊 جدول تفصيلي
+          </button>
+          <button onclick="switchTab('raw')" id="tab-btn-raw" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
+            { } JSON خام
+          </button>
+          <button onclick="switchTab('logs')" id="tab-btn-logs" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
+            📟 السجل المباشر
+          </button>
+        </div>
+
+        <!-- Export Buttons -->
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400 font-semibold">تصدير النتائج:</span>
+          <button onclick="exportData('json')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono transition">
+            JSON
+          </button>
+          <button onclick="exportData('csv')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono transition">
+            CSV (Excel)
+          </button>
+          <button onclick="exportData('jsonl')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono transition">
+            JSONL
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Cards Grid -->
+      <div id="tab-cards" class="flex-1 overflow-y-auto p-6">
+        <div id="ads-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <!-- Empty State -->
+          <div id="empty-state" class="col-span-full py-20 text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+              </svg>
+            </div>
+            <h3 class="text-base font-bold text-slate-300">لا توجد إعلانات مسحوبة بعد</h3>
+            <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">اضبط الإعدادات على اليسار واضغط على "بدء السحب" لرؤية الإعلانات تتدفق هنا بشكل مباشر.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Table View -->
+      <div id="tab-table" class="flex-1 overflow-auto p-6 hidden">
+        <div class="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/60">
+          <table class="w-full text-right text-xs">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-semibold">
+              <tr>
+                <th class="p-3">#</th>
+                <th class="p-3">الصفحة</th>
+                <th class="p-3">النص الإعلاني</th>
+                <th class="p-3">المنصات</th>
+                <th class="p-3">المشاهدات</th>
+                <th class="p-3">الإنفاق</th>
+                <th class="p-3">الحالة</th>
+                <th class="p-3">الرابط</th>
+              </tr>
+            </thead>
+            <tbody id="ads-table-body" class="divide-y divide-slate-800/60">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 3: Raw JSON -->
+      <div id="tab-raw" class="flex-1 overflow-auto p-6 hidden">
+        <pre id="raw-json-viewer" class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 leading-relaxed overflow-x-auto">[]</pre>
+      </div>
+
+      <!-- Tab 4: Live Logs -->
+      <div id="tab-logs" class="flex-1 overflow-auto p-6 hidden font-mono text-xs">
+        <div id="logs-container" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1 text-slate-400 min-h-full">
+          <div class="text-blue-400">> تم تشغيل نظام الواجهة. بانتظار بدء مهام السحب...</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- (Clean layout, brand archive removed) -->
+
+  <!-- Page Search Modal -->
+  <div id="page-search-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-white">بحث عن صفحات فيسبوك واستخراج معرفاتها</h3>
+        <button onclick="closePageModal()" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="flex gap-2">
+          <input type="text" id="modal-page-query" placeholder="اكتب اسم الصفحة (مثلاً Nike, Amazon)..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+          <button onclick="performPageSearch()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition">بحث</button>
+        </div>
+        <div id="modal-page-results" class="max-h-60 overflow-y-auto space-y-2 text-xs">
+          <!-- Results populated here -->
+          <div class="text-slate-500 text-center py-6">اكتب اسم صفحة واضغط على بحث.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    let adsData = [];
+    let isRunning = false;
+    let eventSource = null;
+    let timerInterval = null;
+    let startTime = 0;
+
+    // Connect to Server-Sent Events (SSE) stream
+    function initEventStream() {
+      if (eventSource) return;
+      eventSource = new EventSource('/api/stream');
+
+      eventSource.onmessage = function(e) {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'ping') return;
+
+        logEvent(msg);
+
+        if (msg.type === 'ad') {
+          addAdCard(msg.data);
+        } else if (msg.type === 'started') {
+          setRunningState(true);
+        } else if (msg.type === 'finished') {
+          setRunningState(false);
+        } else if (msg.type === 'error') {
+          addLog(`[خطأ] ${msg.data.context}`, 'text-rose-400');
+        } else if (msg.type === 'rate_limited') {
+          addLog(`[تنبيه معدل الطلبات] يتم الانتظار ${msg.data.wait_seconds} ثانية...`, 'text-amber-400');
+        }
+      };
+
+      eventSource.onerror = function() {
+        console.warn('SSE connection interrupted, retrying...');
+      };
+    }
+
+    // Toggle incremental options visibility
+    document.getElementById('cfg-incremental').addEventListener('change', function() {
+      const opts = document.getElementById('incremental-options');
+      if (this.checked) {
+        opts.classList.remove('hidden');
+      } else {
+        opts.classList.add('hidden');
+      }
+    });
+
+    function startCollection() {
+      const isIncremental = document.getElementById('cfg-incremental').checked;
+      const config = {
+        query: document.getElementById('cfg-query').value,
+        country: document.getElementById('cfg-country').value,
+        ad_type: document.getElementById('cfg-ad-type').value,
+        status: document.getElementById('cfg-status').value,
+        search_type: document.getElementById('cfg-search-type').value,
+        page_ids: document.getElementById('cfg-page-ids').value,
+        max_results: document.getElementById('cfg-max-results').value,
+        delay: document.getElementById('cfg-delay').value,
+        has_video: document.getElementById('cfg-has-video').checked ? true : null,
+        has_image: document.getElementById('cfg-has-image').checked ? true : null,
+        proxy: document.getElementById('cfg-proxy').value,
+        incremental: isIncremental,
+        max_consecutive_seen: isIncremental ? document.getElementById('cfg-max-seen').value : null,
+      };
+
+      // Reset local store
+      adsData = [];
+      document.getElementById('ads-grid').innerHTML = '';
+      document.getElementById('ads-table-body').innerHTML = '';
+      document.getElementById('raw-json-viewer').textContent = '[]';
+      document.getElementById('stat-ads').textContent = '0';
+      document.getElementById('count-tab-cards').textContent = '0';
+
+      fetch('/api/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          alert('خطأ: ' + data.error);
+        } else {
+          setRunningState(true);
+          initEventStream();
+        }
+      })
+      .catch(err => alert('تعذر الاتصال بالخادم: ' + err));
+    }
+
+    function stopCollection() {
+      fetch('/api/stop', { method: 'POST' })
+      .then(res => res.json())
+      .then(() => {
+        addLog('تم إرسال أمر إيقاف العملية...', 'text-rose-400');
+      });
+    }
+
+    function setRunningState(running) {
+      isRunning = running;
+      document.getElementById('btn-start').disabled = running;
+      document.getElementById('btn-stop').disabled = !running;
+
+      const badge = document.getElementById('status-badge');
+      const badgeText = document.getElementById('status-text');
+
+      if (running) {
+        badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span><span>جاري السحب...</span>';
+        startTime = Date.now();
+        timerInterval = setInterval(updateStatsHeader, 1000);
+      } else {
+        badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>مكتمل / جاهز</span>';
+        clearInterval(timerInterval);
+      }
+    }
+
+    function updateStatsHeader() {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+      const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
+      document.getElementById('stat-time').textContent = `${mins}:${secs}`;
+
+      if (elapsed > 0 && adsData.length > 0) {
+        const speed = (adsData.length / elapsed).toFixed(1);
+        document.getElementById('stat-speed').textContent = `${speed} /ث`;
+      }
+    }
+
+    function addAdCard(ad) {
+      adsData.push(ad);
+      const count = adsData.length;
+      document.getElementById('stat-ads').textContent = count;
+      document.getElementById('count-tab-cards').textContent = count;
+
+      // Update Raw JSON tab
+      document.getElementById('raw-json-viewer').textContent = JSON.stringify(adsData, null, 2);
+
+      // Creative info
+      const creative = (ad.creatives && ad.creatives[0]) ? ad.creatives[0] : {};
+      const page = ad.page || {};
+      const pageName = page.name || 'صفحة غير معروفة';
+      const pagePic = page.profile_picture_url || 'https://via.placeholder.com/40';
+      const bodyText = creative.body || 'بدون نص';
+      const ctaText = creative.cta_text || 'عرض المزيد';
+      const linkUrl = creative.link_url || '#';
+      const mediaImg = creative.image_url || creative.thumbnail_url;
+      const mediaVid = creative.video_url || creative.video_hd_url;
+      const impressions = ad.impressions ? `${ad.impressions.lower_bound || 0} - ${ad.impressions.upper_bound || 'غير محدد'}` : 'غير متوفر';
+
+      // 1. Append Card
+      const card = document.createElement('div');
+      card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col hover:border-slate-700 transition shadow-lg';
+      card.innerHTML = `
+        <div class="p-4 border-b border-slate-800/80 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="${pagePic}" class="w-10 h-10 rounded-full border border-slate-700 object-cover" onerror="this.src='https://via.placeholder.com/40'">
+            <div>
+              <div class="font-bold text-sm text-white">${escapeHtml(pageName)}</div>
+              <div class="text-[11px] text-slate-500 font-mono">ID: ${ad.id}</div>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${ad.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">
+            ${ad.is_active ? 'نشط' : 'متوقف'}
+          </span>
+        </div>
+
+        <div class="p-4 text-xs text-slate-200 line-clamp-4 leading-relaxed font-sans">
+          ${escapeHtml(bodyText)}
+        </div>
+
+        ${mediaImg ? `
+          <div class="bg-black relative aspect-video flex items-center justify-center overflow-hidden border-y border-slate-800">
+            <img src="${mediaImg}" class="w-full h-full object-cover">
+            ${mediaVid ? '<div class="absolute inset-0 bg-black/40 flex items-center justify-center"><span class="bg-blue-600 text-white rounded-full p-2">▶ فيديو</span></div>' : ''}
+          </div>
+        ` : ''}
+
+        <div class="p-4 bg-slate-950/50 mt-auto border-t border-slate-800/60 space-y-2.5 text-[11px]">
+          <div class="flex items-center justify-between text-slate-400">
+            <span>المشاهدات التقريبية:</span>
+            <span class="font-mono text-slate-200 font-semibold">${impressions}</span>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div class="flex gap-1">
+              ${(ad.publisher_platforms || []).map(p => `<span class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">${p}</span>`).join('')}
+            </div>
+            <a href="${linkUrl}" target="_blank" class="bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white px-3 py-1 rounded-lg font-bold transition text-xs">
+              ${escapeHtml(ctaText)} ↗
+            </a>
+          </div>
+
+          <!-- Engagement Check Section -->
+          <div id="engagement-box-${ad.id}" class="pt-2 border-t border-slate-800/50">
+            <button onclick="inspectEngagement('${ad.id}')" id="btn-engage-${ad.id}" class="w-full bg-slate-800 hover:bg-indigo-600/30 hover:text-indigo-300 text-slate-300 border border-slate-700/80 rounded-lg py-1.5 px-3 flex items-center justify-center gap-1.5 font-bold transition text-xs">
+              <span>🔍 فحص تفاعل البوست الأصلي</span>
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('ads-grid').prepend(card);
+
+      // 2. Append Table Row
+      const row = document.createElement('tr');
+      row.className = 'hover:bg-slate-800/40 text-slate-300';
+      row.innerHTML = `
+        <td class="p-3 font-mono text-slate-500">${count}</td>
+        <td class="p-3 font-semibold text-white whitespace-nowrap">${escapeHtml(pageName)}</td>
+        <td class="p-3 max-w-xs truncate">${escapeHtml(bodyText)}</td>
+        <td class="p-3 font-mono text-[10px]">${(ad.publisher_platforms || []).join(', ')}</td>
+        <td class="p-3 font-mono">${impressions}</td>
+        <td class="p-3 font-mono">${ad.spend ? ad.spend.currency + ' ' + (ad.spend.lower_bound || '') : '-'}</td>
+        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${ad.is_active ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400'}">${ad.is_active ? 'نشط' : 'متوقف'}</span></td>
+        <td class="p-3"><a href="${linkUrl}" target="_blank" class="text-blue-400 hover:underline">زيارة</a></td>
+      `;
+      document.getElementById('ads-table-body').prepend(row);
+    }
+
+    function logEvent(msg) {
+      if (msg.type === 'page_fetched') {
+        document.getElementById('stat-pages').textContent = msg.data.page_number;
+        addLog(`[صفحة جديدة] تم جلب الصفحة رقم ${msg.data.page_number} (${msg.data.ads_on_page} إعلان)`);
+      } else if (msg.type === 'finished') {
+        if (msg.data.early_exit) {
+          addLog(`[توقف ذكي] تم اكتشاف إعلانات قديمة مسجلة مسبقاً! تم إيقاف السحب تلقائياً بعد جلب ${msg.data.total_collected} إعلان جديد لتوفير الاستهلاك.`, 'text-blue-400 font-bold bg-blue-950/30 p-2 rounded');
+        } else {
+          addLog(`[اكتمال] تم سحب ${msg.data.total_collected} إعلان بنجاح في ${msg.data.duration} ثانية.`, 'text-emerald-400 font-bold');
+        }
+      }
+    }
+
+    function addLog(text, className = '') {
+      const container = document.getElementById('logs-container');
+      const time = new Date().toLocaleTimeString('ar-EG');
+      const div = document.createElement('div');
+      div.className = className || 'text-slate-400';
+      div.textContent = `[${time}] ${text}`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function switchTab(tab) {
+      ['cards', 'table', 'raw', 'logs'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`tab-btn-${t}`).className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition';
+      });
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-btn-${tab}`).className = 'px-3 py-1.5 rounded-md bg-blue-600 text-white transition';
+    }
+
+    function exportData(fmt) {
+      if (adsData.length === 0) {
+        alert('لا توجد بيانات مسحوبة لتصديرها حالياً.');
+        return;
+      }
+      window.location.href = `/api/export/${fmt}`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+      });
+    }
+
+    // Modal search pages
+    document.getElementById('btn-page-search-modal').onclick = () => {
+      document.getElementById('page-search-modal').classList.remove('hidden');
+    };
+    function closePageModal() {
+      document.getElementById('page-search-modal').classList.add('hidden');
+    }
+    function performPageSearch() {
+      const q = document.getElementById('modal-page-query').value.trim();
+      const country = document.getElementById('cfg-country').value;
+      if (!q) return;
+
+      const container = document.getElementById('modal-page-results');
+      container.innerHTML = '<div class="text-blue-400 text-center py-4">جاري البحث عن الصفحات...</div>';
+
+      fetch(`/api/search_pages?query=${encodeURIComponent(q)}&country=${country}`)
+      .then(res => res.json())
+      .then(data => {
+        container.innerHTML = '';
+        if (!data.pages || data.pages.length === 0) {
+          container.innerHTML = '<div class="text-slate-500 text-center py-4">لم يتم العثور على أي نتائج.</div>';
+          return;
+        }
+        data.pages.forEach(p => {
+          const item = document.createElement('div');
+          item.className = 'p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between hover:border-blue-500 transition';
+          item.innerHTML = `
+            <div>
+              <div class="font-bold text-white">${escapeHtml(p.page_name)}</div>
+              <div class="text-[11px] text-slate-500 font-mono">ID: ${p.page_id} ${p.category ? '• ' + p.category : ''}</div>
+            </div>
+            <button onclick="selectPageId('${p.page_id}')" class="bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white px-3 py-1 rounded text-xs transition">اختيار</button>
+          `;
+          container.appendChild(item);
+        });
+      })
+      .catch(err => {
+        container.innerHTML = `<div class="text-rose-400 text-center py-4">فشل البحث: ${err}</div>`;
+      });
+    }
+
+    function selectPageId(id) {
+      document.getElementById('cfg-page-ids').value = id;
+      closePageModal();
+    }
+
+    // Inspect Facebook Post Engagement via Google Dorking
+    function inspectEngagement(adId) {
+      const ad = adsData.find(a => a.id === adId);
+      if (!ad) return;
+
+      const creative = (ad.creatives && ad.creatives[0]) ? ad.creatives[0] : {};
+      const bodyText = creative.body || '';
+      const pageName = (ad.page && ad.page.name) ? ad.page.name : '';
+
+      const btn = document.getElementById(`btn-engage-${adId}`);
+      const box = document.getElementById(`engagement-box-${adId}`);
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="inline-block animate-spin mr-1">↻</span> جاري البحث في جوجل وفحص التفاعل...`;
+      }
+
+      fetch('/api/inspect_engagement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: bodyText, page_name: pageName })
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.found) {
+          box.innerHTML = `
+            <div class="bg-indigo-950/40 border border-indigo-500/40 rounded-xl p-3 space-y-1.5 text-xs animate-fade-in">
+              <div class="flex items-center justify-between font-bold text-indigo-300">
+                <span class="flex items-center gap-1.5">🎯 تم العثور على المنشور الأصلي</span>
+                <span class="text-[10px] text-slate-400 font-normal">${res.date || ''}</span>
+              </div>
+              
+              <!-- Metrics Grid -->
+              <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded-lg border border-indigo-500/20 text-[11px]">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-slate-400">👍 التفاعل:</span>
+                  <span class="font-bold text-emerald-400 font-mono">${res.reactions || 'متوفر'}</span>
+                </div>
+                ${res.views ? `
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-slate-400">👁️ المشاهدات:</span>
+                    <span class="font-bold text-amber-400 font-mono">${res.views}</span>
+                  </div>
+                ` : ''}
+                ${res.comments ? `
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-slate-400">💬 التعليقات:</span>
+                    <span class="font-bold text-blue-400 font-mono">${res.comments}</span>
+                  </div>
+                ` : ''}
+                ${res.shares ? `
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-slate-400">🔄 المشاركات:</span>
+                    <span class="font-bold text-indigo-300 font-mono">${res.shares}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="flex items-center justify-between pt-1 text-[11px]">
+                <a href="${res.post_url}" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold flex items-center gap-1">
+                  🔗 فتح البوست الأصلي على فيسبوك ↗
+                </a>
+                <a href="${res.google_url}" target="_blank" class="text-slate-400 hover:text-slate-200 text-[10px]">
+                  نتائج جوجل
+                </a>
+              </div>
+            </div>
+          `;
+        } else {
+          box.innerHTML = `
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-amber-400/90 font-semibold">⚠️ ${res.message || res.error || 'لم يتم العثور على منشور مطابق'}</span>
+                ${res.google_url ? `<a href="${res.google_url}" target="_blank" class="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-[10px] hover:bg-blue-600 hover:text-white transition">بحث في جوجل ↗</a>` : ''}
+              </div>
+              ${res.snippet ? `<div class="text-[10px] text-slate-500 truncate">تم البحث بـ: "${escapeHtml(res.snippet)}"</div>` : ''}
+            </div>
+          `;
+        }
+      })
+      .catch(err => {
+        box.innerHTML = `<div class="text-rose-400 text-[11px] p-2">فشل الفحص: ${err}</div>`;
+      });
+    }
+
+    // Initialize on load
+    window.addEventListener('load', () => {
+      initEventStream();
+    });
+  </script>
+</body>
+</html>
