@@ -55,6 +55,7 @@ from meta_ads_collector.events import (
     SESSION_REFRESHED,
     Event,
 )
+from db import db
 from meta_ads_collector.dedup import DeduplicationTracker
 from meta_ads_collector.filters import FilterConfig
 from meta_ads_collector.models import Ad
@@ -117,14 +118,22 @@ class CollectionManager:
         self.reset()
         start_mono = time.monotonic()
 
-        proxy_val = config.get("proxy")
-        proxy_pool = None
+        # Check proxies: from config input, OR fallback to database proxies
+        proxy_val = config.get("proxy", "").strip()
+        proxies_list = []
         if proxy_val:
             proxies_list = [p.strip() for p in proxy_val.split("\n") if p.strip() and not p.startswith("#")]
-            if len(proxies_list) > 1:
-                proxy_pool = ProxyPool(proxies_list)
-            elif len(proxies_list) == 1:
-                proxy_pool = proxies_list[0]
+        else:
+            # Auto-load active proxies from PostgreSQL/SQLite database
+            proxies_list = db.get_active_proxies()
+            if proxies_list:
+                logger.info("Loaded %d active proxies directly from database.", len(proxies_list))
+
+        proxy_pool = None
+        if len(proxies_list) > 1:
+            proxy_pool = ProxyPool(proxies_list)
+        elif len(proxies_list) == 1:
+            proxy_pool = proxies_list[0]
 
         rate_limit_delay = float(config.get("delay", 2.0))
         timeout = int(config.get("timeout", 30))
@@ -165,6 +174,13 @@ class CollectionManager:
                     ad_dict = ad_obj.to_dict()
                     self.collected_ads.append(ad_dict)
                     self.stats["ads_collected"] = len(self.collected_ads)
+                    
+                    # Real-time save into PostgreSQL / Database
+                    try:
+                        db.save_ad(ad_dict, query=config.get("query", ""), country=config.get("country", "DZ"))
+                    except Exception as db_err:
+                        logger.warning("Error saving ad %s to database: %s", ad_dict.get("id"), db_err)
+
                     self.event_queue.put({"type": "ad", "data": ad_dict})
 
             def on_rate_limited(evt: Event):
@@ -241,6 +257,18 @@ class CollectionManager:
                     self.collector.close()
                 except Exception:
                     pass
+
+            # Log collection to Database
+            try:
+                db.log_collection(
+                    query=config.get("query", ""),
+                    country=config.get("country", "DZ"),
+                    total_collected=len(self.collected_ads),
+                    duration_seconds=self.stats["duration_seconds"],
+                )
+            except Exception as log_err:
+                logger.warning("Failed to log collection run: %s", log_err)
+
             self.event_queue.put({
                 "type": "finished",
                 "data": {
@@ -300,6 +328,80 @@ def api_clear_dedup():
         tracker.clear()
         tracker.close()
     return jsonify({"status": "cleared", "message": "تم تصفية سجل الإعلانات السابقة بنجاح."})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PostgreSQL Database Management Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/db/stats", methods=["GET"])
+def api_db_stats():
+    """Return database metrics and stats."""
+    return jsonify(db.get_stats())
+
+
+@app.route("/api/db/ads", methods=["GET"])
+def api_db_ads():
+    """Retrieve archived ads from PostgreSQL database with pagination."""
+    limit = int(request.args.get("limit", 50))
+    offset = int(request.args.get("offset", 0))
+    query = request.args.get("query", "").strip()
+    country = request.args.get("country", "").strip()
+
+    ads = db.get_ads(limit=limit, offset=offset, query=query, country=country)
+    total = db.count_ads(query=query, country=country)
+    return jsonify({"ads": ads, "total": total, "limit": limit, "offset": offset})
+
+
+@app.route("/api/db/ads/<ad_id>", methods=["DELETE"])
+def api_db_delete_ad(ad_id: str):
+    """Delete a single ad from the database."""
+    db.delete_ad(ad_id)
+    return jsonify({"status": "deleted", "id": ad_id})
+
+
+@app.route("/api/db/ads/clear", methods=["POST"])
+def api_db_clear_ads():
+    """Delete all ads from database."""
+    count = db.clear_ads()
+    return jsonify({"status": "cleared", "deleted_count": count})
+
+
+@app.route("/api/db/proxies", methods=["GET"])
+def api_db_proxies():
+    """List all proxies stored in database."""
+    proxies = db.get_all_proxies()
+    return jsonify({"proxies": proxies})
+
+
+@app.route("/api/db/proxies", methods=["POST"])
+def api_db_add_proxies():
+    """Add proxy or proxies to the database."""
+    data = request.get_json(force=True, silent=True) or {}
+    proxy_text = data.get("proxies", "")
+    added = db.add_proxies_bulk(proxy_text)
+    return jsonify({"status": "success", "added_count": added})
+
+
+@app.route("/api/db/proxies/<int:proxy_id>", methods=["DELETE"])
+def api_db_delete_proxy(proxy_id: int):
+    """Delete a proxy by its ID."""
+    db.delete_proxy(proxy_id)
+    return jsonify({"status": "deleted", "proxy_id": proxy_id})
+
+
+@app.route("/api/db/proxies/clear", methods=["POST"])
+def api_db_clear_proxies():
+    """Delete all proxies from database."""
+    count = db.clear_proxies()
+    return jsonify({"status": "cleared", "count": count})
+
+
+@app.route("/api/db/reset", methods=["POST"])
+def api_db_reset():
+    """Factory Reset: Completely wipe and rebuild database tables."""
+    db.factory_reset()
+    return jsonify({"status": "reset", "message": "تمت إعادة تهيئة قاعدة البيانات بالكامل بنجاح."})
 
 
 @app.route("/api/status", methods=["GET"])
@@ -379,7 +481,7 @@ def extract_search_snippet(text: str) -> str:
     return snippet
 
 
-SERPER_API_KEY = "f0d48f72f32309b925b35ee8d536ced36b345a2c"
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "").strip()
 
 
 def scrape_facebook_engagement(post_url: str) -> dict[str, Any]:

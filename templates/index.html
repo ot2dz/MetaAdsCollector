@@ -91,6 +91,11 @@
           <div class="text-xs text-slate-400">الوقت</div>
           <div id="stat-time" class="text-base font-bold text-amber-400 font-mono">00:00</div>
         </div>
+        <div class="w-px h-6 bg-slate-800"></div>
+        <div class="text-center cursor-pointer" onclick="switchTab('db')">
+          <div class="text-xs text-slate-400">قاعدة البيانات</div>
+          <div id="stat-db-total" class="text-base font-bold text-purple-400 font-mono">0 🗄️</div>
+        </div>
       </div>
 
       <!-- Action status badge -->
@@ -254,6 +259,12 @@
           <button onclick="switchTab('table')" id="tab-btn-table" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
             📊 جدول تفصيلي
           </button>
+          <button onclick="switchTab('db')" id="tab-btn-db" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5">
+            🗄️ الأرشيف المحفوظ (<span id="count-tab-db">0</span>)
+          </button>
+          <button onclick="switchTab('proxies')" id="tab-btn-proxies" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-amber-400 transition flex items-center gap-1.5">
+            🔌 البروكسيات (<span id="count-tab-proxies">0</span>)
+          </button>
           <button onclick="switchTab('raw')" id="tab-btn-raw" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
             { } JSON خام
           </button>
@@ -325,6 +336,74 @@
       <div id="tab-logs" class="flex-1 overflow-auto p-6 hidden font-mono text-xs">
         <div id="logs-container" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1 text-slate-400 min-h-full">
           <div class="text-blue-400">> تم تشغيل نظام الواجهة. بانتظار بدء مهام السحب...</div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Database Archive (PostgreSQL) -->
+      <div id="tab-db" class="flex-1 overflow-y-auto p-6 hidden">
+        <div class="space-y-4">
+          <!-- DB Header Toolbar -->
+          <div class="flex items-center justify-between bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-4">
+              <input type="text" id="db-search-input" placeholder="بحث في الإعلانات المحفوظة..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 w-64">
+              <button onclick="loadDatabaseAds()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition">بحث</button>
+              <button onclick="refreshDbStats()" class="text-slate-400 hover:text-white text-xs">↻ تحديث</button>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="clearDbAds()" class="text-xs bg-rose-600/20 text-rose-300 border border-rose-600/30 hover:bg-rose-600 hover:text-white px-3 py-1.5 rounded-lg transition font-semibold">
+                🗑️ مسح كل الإعلانات
+              </button>
+              <button onclick="triggerFactoryReset()" class="text-xs bg-red-950 text-red-400 border border-red-800 hover:bg-red-700 hover:text-white px-3 py-1.5 rounded-lg transition font-bold">
+                ⚠️ إعادة تهيئة شاملة (Reset DB)
+              </button>
+            </div>
+          </div>
+
+          <!-- Stored Ads Grid -->
+          <div id="db-ads-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div class="col-span-full py-12 text-center text-slate-500 text-xs">جاري تحميل بيانات الأرشيف...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 6: Proxies Management -->
+      <div id="tab-proxies" class="flex-1 overflow-y-auto p-6 hidden">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white">إضافة بروكسيات جديدة لقاعدة البيانات</h3>
+                <p class="text-xs text-slate-400 mt-0.5">ستقوم الأداة باستخدام هذه البروكسيات تلقائياً في كل عمليات السحب المستمرة 24/7</p>
+              </div>
+              <button onclick="saveNewProxies()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg transition">
+                + حفظ البروكسيات
+              </button>
+            </div>
+            <textarea id="db-proxy-input" rows="3" placeholder="host:port أو host:port:user:pass (ضع بروكسي في كل سطر)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-amber-500"></textarea>
+          </div>
+
+          <!-- Proxies List Table -->
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-300">قائمة البروكسيات المسجلة في السيرفر</span>
+              <button onclick="clearAllProxies()" class="text-xs text-rose-400 hover:underline font-semibold">حذف جميع البروكسيات</button>
+            </div>
+            <table class="w-full text-right text-xs">
+              <thead class="bg-slate-950 border-b border-slate-800 text-slate-400">
+                <tr>
+                  <th class="p-3">#</th>
+                  <th class="p-3">البروكسي</th>
+                  <th class="p-3">الحالة</th>
+                  <th class="p-3">الأخطاء</th>
+                  <th class="p-3">آخر استخدام</th>
+                  <th class="p-3">إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="db-proxies-table-body" class="divide-y divide-slate-800/60 font-mono">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -597,12 +676,164 @@
     }
 
     function switchTab(tab) {
-      ['cards', 'table', 'raw', 'logs'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.add('hidden');
-        document.getElementById(`tab-btn-${t}`).className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition';
+      ['cards', 'table', 'db', 'proxies', 'raw', 'logs'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (el) el.classList.add('hidden');
+        if (btn) btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition';
       });
-      document.getElementById(`tab-${tab}`).classList.remove('hidden');
-      document.getElementById(`tab-btn-${tab}`).className = 'px-3 py-1.5 rounded-md bg-blue-600 text-white transition';
+      const activeEl = document.getElementById(`tab-${tab}`);
+      const activeBtn = document.getElementById(`tab-btn-${tab}`);
+      if (activeEl) activeEl.classList.remove('hidden');
+      if (activeBtn) activeBtn.className = 'px-3 py-1.5 rounded-md bg-blue-600 text-white transition font-bold';
+
+      if (tab === 'db') loadDatabaseAds();
+      if (tab === 'proxies') loadDatabaseProxies();
+    }
+
+    // ── Database Operations ──────────────────────────────────────────────────
+    function refreshDbStats() {
+      fetch('/api/db/stats')
+      .then(r => r.json())
+      .then(stats => {
+        document.getElementById('stat-db-total').textContent = `${stats.total_ads} (${stats.backend})`;
+        document.getElementById('count-tab-db').textContent = stats.total_ads;
+        document.getElementById('count-tab-proxies').textContent = stats.active_proxies;
+      })
+      .catch(e => console.warn('Failed to load DB stats', e));
+    }
+
+    function loadDatabaseAds() {
+      const q = document.getElementById('db-search-input').value;
+      const grid = document.getElementById('db-ads-grid');
+      grid.innerHTML = '<div class="col-span-full py-8 text-center text-purple-400 text-xs">جاري جلب الإعلانات من قاعدة البيانات...</div>';
+
+      fetch(`/api/db/ads?query=${encodeURIComponent(q)}&limit=60`)
+      .then(r => r.json())
+      .then(data => {
+        grid.innerHTML = '';
+        if (!data.ads || data.ads.length === 0) {
+          grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-500 text-xs">لا توجد إعلانات مخزنة في الأرشيف حالياً.</div>';
+          return;
+        }
+
+        data.ads.forEach(ad => {
+          const card = document.createElement('div');
+          card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col p-4 shadow-lg text-xs space-y-2.5';
+          card.innerHTML = `
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div class="font-bold text-white text-sm truncate">${escapeHtml(ad.page_name || 'صفحة')}</div>
+              <button onclick="deleteSingleAd('${ad.id}')" class="text-rose-400 hover:text-rose-300 text-[11px]">🗑️ حذف</button>
+            </div>
+            <div class="text-slate-300 line-clamp-3 text-[11px] leading-relaxed">${escapeHtml(ad.body || 'بدون نص')}</div>
+            ${ad.image_url ? `<img src="${ad.image_url}" class="w-full h-36 object-cover rounded-lg border border-slate-800">` : ''}
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500">
+              <span>تاريخ الحفظ: ${ad.collected_at ? ad.collected_at.split('T')[0] : ''}</span>
+              ${ad.link_url ? `<a href="${ad.link_url}" target="_blank" class="text-blue-400 hover:underline">زيارة الرابط ↗</a>` : ''}
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      });
+    }
+
+    function deleteSingleAd(adId) {
+      if (!confirm('هل تريد حذف هذا الإعلان من الأرشيف؟')) return;
+      fetch(`/api/db/ads/${adId}`, { method: 'DELETE' })
+      .then(() => {
+        loadDatabaseAds();
+        refreshDbStats();
+      });
+    }
+
+    function clearDbAds() {
+      if (!confirm('⚠️ هل أنت متأكد من مسح جميع الإعلانات المحفوظة في قاعدة البيانات؟')) return;
+      fetch('/api/db/ads/clear', { method: 'POST' })
+      .then(r => r.json())
+      .then(res => {
+        alert(`تم مسح ${res.deleted_count} إعلان بنجاح.`);
+        loadDatabaseAds();
+        refreshDbStats();
+      });
+    }
+
+    function triggerFactoryReset() {
+      if (!confirm('🚨 تحذير شديد: سيتم مسح قاعدة البيانات بالكامل وإعادة تهيئتها كأنها جديدة! هل أنت متأكد؟')) return;
+      fetch('/api/db/reset', { method: 'POST' })
+      .then(r => r.json())
+      .then(res => {
+        alert(res.message);
+        loadDatabaseAds();
+        loadDatabaseProxies();
+        refreshDbStats();
+      });
+    }
+
+    // ── Proxies Operations ───────────────────────────────────────────────────
+    function loadDatabaseProxies() {
+      const tbody = document.getElementById('db-proxies-table-body');
+      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">جاري تحميل البروكسيات...</td></tr>';
+
+      fetch('/api/db/proxies')
+      .then(r => r.json())
+      .then(data => {
+        tbody.innerHTML = '';
+        if (!data.proxies || data.proxies.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد بروكسيات مسجلة. أضف بعض البروكسيات أعلاه.</td></tr>';
+          return;
+        }
+
+        data.proxies.forEach((p, idx) => {
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-slate-800/40 text-slate-300';
+          row.innerHTML = `
+            <td class="p-3 text-slate-500">${idx + 1}</td>
+            <td class="p-3 text-amber-300 font-bold">${escapeHtml(p.proxy_url)}</td>
+            <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${p.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${p.is_active ? 'نشط' : 'معطل'}</span></td>
+            <td class="p-3">${p.failures || 0}</td>
+            <td class="p-3 text-slate-500">${p.last_used ? p.last_used.split('T')[0] : 'لم يُستخدم'}</td>
+            <td class="p-3"><button onclick="deleteSingleProxy(${p.id})" class="text-rose-400 hover:text-rose-300">حذف</button></td>
+          `;
+          tbody.appendChild(row);
+        });
+      });
+    }
+
+    function saveNewProxies() {
+      const text = document.getElementById('db-proxy-input').value.trim();
+      if (!text) {
+        alert('الرجاء إدخال بروكسي واحد على الأقل.');
+        return;
+      }
+      fetch('/api/db/proxies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proxies: text })
+      })
+      .then(r => r.json())
+      .then(res => {
+        alert(`تم حفظ ${res.added_count} بروكسي بنجاح!`);
+        document.getElementById('db-proxy-input').value = '';
+        loadDatabaseProxies();
+        refreshDbStats();
+      });
+    }
+
+    function deleteSingleProxy(id) {
+      fetch(`/api/db/proxies/${id}`, { method: 'DELETE' })
+      .then(() => {
+        loadDatabaseProxies();
+        refreshDbStats();
+      });
+    }
+
+    function clearAllProxies() {
+      if (!confirm('هل تريد مسح جميع البروكسيات؟')) return;
+      fetch('/api/db/proxies/clear', { method: 'POST' })
+      .then(() => {
+        loadDatabaseProxies();
+        refreshDbStats();
+      });
     }
 
     function exportData(fmt) {
@@ -754,6 +985,7 @@
     // Initialize on load
     window.addEventListener('load', () => {
       initEventStream();
+      refreshDbStats();
     });
   </script>
 </body>
