@@ -61,6 +61,30 @@ pip install -e ".[dev]"
 
 `curl_cffi` is installed automatically and provides Chrome-like TLS fingerprints so requests are indistinguishable from a real browser.
 
+## Local Development
+
+Run the web dashboard locally:
+
+```bash
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt && pip install -e .
+cp .env.example .env   # then set SERPER_API_KEY (and optional proxy settings)
+python web_app.py      # http://127.0.0.1:5001
+```
+
+Or use the `Makefile`:
+
+```bash
+make dev     # install dev dependencies and run the dashboard
+make test    # run the test suite
+make check   # lint + typecheck + tests
+```
+
+Environment variables are loaded from `.env` (via `python-dotenv`). When `DATABASE_URL`
+points to PostgreSQL the app uses it; otherwise it falls back to a local SQLite file.
+
+Pushing to `main` triggers an automatic deployment on Coolify (GitHub webhook).
+
 ## Features
 
 - **Search & Collection** -- keyword search, exact phrase, page-level collection by URL/name/ID
