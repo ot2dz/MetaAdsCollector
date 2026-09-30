@@ -1,67 +1,80 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install install-dev dev run test test-cov lint typecheck format check build clean
+# Use the local virtualenv by default; override with `make VENV=... PYTHON=...`
+VENV ?= venv
+PYTHON ?= python3
+PY := $(VENV)/bin/python
+PIP := $(PY) -m pip
+
+.PHONY: help venv install install-dev dev run test test-cov lint typecheck format check build clean
 
 ## help: Show this help message
 help:
-	@echo Available targets:
-	@echo   make install      - Install the package in editable mode
-	@echo   make install-dev  - Install with dev dependencies
-	@echo   make dev          - Install dev deps and run the web dashboard
-	@echo   make run          - Run the web dashboard (http://127.0.0.1:5001)
-	@echo   make test         - Run tests
-	@echo   make test-cov     - Run tests with coverage report
-	@echo   make lint         - Run ruff linter
-	@echo   make typecheck    - Run mypy type checker
-	@echo   make format       - Format code with ruff
-	@echo   make check        - Run lint + typecheck + tests
-	@echo   make build        - Build distribution packages
-	@echo   make clean        - Remove build artifacts
+	@echo 'Available targets:'
+	@echo '  make venv         - Create the local virtual environment'
+	@echo '  make install      - Install the package in editable mode'
+	@echo '  make install-dev  - Install with dev dependencies'
+	@echo '  make dev          - Install dev deps and run the web dashboard'
+	@echo '  make run          - Run the web dashboard (http://127.0.0.1:5001)'
+	@echo '  make test         - Run tests'
+	@echo '  make test-cov     - Run tests with coverage report'
+	@echo '  make lint         - Run ruff linter'
+	@echo '  make typecheck    - Run mypy type checker'
+	@echo '  make format       - Format code with ruff'
+	@echo '  make check        - Run lint + typecheck + tests'
+	@echo '  make build        - Build distribution packages'
+	@echo '  make clean        - Remove build artifacts'
+
+## venv: Create the local virtual environment
+venv: $(VENV)/bin/activate
+
+$(VENV)/bin/activate: pyproject.toml requirements.txt
+	$(PYTHON) -m venv $(VENV)
+	$(PIP) install --upgrade pip
 
 ## install: Install the package in editable mode
-install:
-	pip install -e .
+install: venv
+	$(PIP) install -e .
 
 ## install-dev: Install with all development dependencies
-install-dev:
-	pip install -e ".[dev]"
-	pip install -r requirements.txt
+install-dev: venv
+	$(PIP) install -e ".[dev]"
+	$(PIP) install -r requirements.txt
 
 ## dev: Install dev dependencies and run the web dashboard locally
 dev: install-dev run
 
 ## run: Run the web dashboard locally
-run:
-	python web_app.py
-
+run: venv
+	$(PY) web_app.py
 
 ## test: Run the test suite
-test:
-	python -m pytest
+test: venv
+	$(PY) -m pytest
 
 ## test-cov: Run tests with coverage report
-test-cov:
-	python -m pytest --cov=meta_ads_collector --cov-report=term-missing --cov-report=html
+test-cov: venv
+	$(PY) -m pytest --cov=meta_ads_collector --cov-report=term-missing --cov-report=html
 
 ## lint: Run ruff linter
-lint:
-	python -m ruff check .
+lint: venv
+	$(PY) -m ruff check .
 
 ## typecheck: Run mypy type checker
-typecheck:
-	python -m mypy meta_ads_collector/ --ignore-missing-imports
+typecheck: venv
+	$(PY) -m mypy meta_ads_collector/ --ignore-missing-imports
 
 ## format: Format code with ruff
-format:
-	python -m ruff format .
-	python -m ruff check --fix .
+format: venv
+	$(PY) -m ruff format .
+	$(PY) -m ruff check --fix .
 
 ## check: Run all checks (lint, typecheck, tests)
 check: lint typecheck test
 
 ## build: Build source and wheel distributions
-build:
-	python -m build
+build: venv
+	$(PY) -m build
 
 ## clean: Remove build artifacts and caches
 clean:
