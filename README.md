@@ -75,9 +75,10 @@ python web_app.py      # http://127.0.0.1:5001
 Or use the `Makefile`:
 
 ```bash
-make dev     # install dev dependencies and run the dashboard
-make test    # run the test suite
-make check   # lint + typecheck + tests
+make dev       # install dev dependencies and run the dashboard
+make run-dev   # run with auto-reload: edits to .py/.html apply without restart
+make test      # run the test suite
+make check     # lint + typecheck + tests
 ```
 
 Environment variables are loaded from `.env` (via `python-dotenv`). When `DATABASE_URL`

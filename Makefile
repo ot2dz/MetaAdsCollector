@@ -6,7 +6,7 @@ PYTHON ?= python3
 PY := $(VENV)/bin/python
 PIP := $(PY) -m pip
 
-.PHONY: help venv install install-dev dev run test test-cov lint typecheck format check build clean
+.PHONY: help venv install install-dev dev run run-dev test test-cov lint typecheck format check build clean
 
 ## help: Show this help message
 help:
@@ -16,6 +16,7 @@ help:
 	@echo '  make install-dev  - Install with dev dependencies'
 	@echo '  make dev          - Install dev deps and run the web dashboard'
 	@echo '  make run          - Run the web dashboard (http://127.0.0.1:5001)'
+	@echo '  make run-dev      - Run with auto-reload (watch files) for development'
 	@echo '  make test         - Run tests'
 	@echo '  make test-cov     - Run tests with coverage report'
 	@echo '  make lint         - Run ruff linter'
@@ -47,6 +48,10 @@ dev: install-dev run
 ## run: Run the web dashboard locally
 run: venv
 	$(PY) web_app.py
+
+## run-dev: Run with auto-reload (watch files) for local development
+run-dev: venv
+	$(PY) -m flask --app web_app run --debug --host 127.0.0.1 --port 5001
 
 ## test: Run the test suite
 test: venv
