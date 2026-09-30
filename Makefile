@@ -1,12 +1,14 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install install-dev test test-cov lint typecheck format check build clean
+.PHONY: help install install-dev dev run test test-cov lint typecheck format check build clean
 
 ## help: Show this help message
 help:
 	@echo Available targets:
 	@echo   make install      - Install the package in editable mode
 	@echo   make install-dev  - Install with dev dependencies
+	@echo   make dev          - Install dev deps and run the web dashboard
+	@echo   make run          - Run the web dashboard (http://127.0.0.1:5001)
 	@echo   make test         - Run tests
 	@echo   make test-cov     - Run tests with coverage report
 	@echo   make lint         - Run ruff linter
@@ -22,7 +24,16 @@ install:
 
 ## install-dev: Install with all development dependencies
 install-dev:
-	pip install -e ".[dev,async]"
+	pip install -e ".[dev]"
+	pip install -r requirements.txt
+
+## dev: Install dev dependencies and run the web dashboard locally
+dev: install-dev run
+
+## run: Run the web dashboard locally
+run:
+	python web_app.py
+
 
 ## test: Run the test suite
 test:
