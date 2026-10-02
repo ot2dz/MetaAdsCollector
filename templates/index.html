@@ -422,13 +422,32 @@
             </div>
           </div>
 
-          <!-- Proxy Pool -->
+          <!-- Proxy Pool with Live Tester and Enable/Disable Switch -->
           <div class="bg-surface-container-lowest p-5 border border-outline-variant/40 shadow-sm flex flex-col gap-3">
-            <div class="flex items-center justify-between">
-              <h2 class="text-sm font-bold text-on-surface">شـبكة البروكسيات (Proxy Pool)</h2>
-              <button onclick="saveProxies()" class="bg-secondary text-on-secondary px-3 py-1 text-xs font-bold hover:bg-secondary-container">حفظ البروكسيات</button>
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-3">
+                <h2 class="text-sm font-bold text-on-surface">شـبكة البروكسيات (Proxy Pool)</h2>
+                <!-- Enable/Disable Switch -->
+                <label class="flex items-center gap-2 cursor-pointer bg-surface-container-low px-2.5 py-1 border border-outline-variant/40 text-xs font-bold">
+                  <input type="checkbox" id="cfg-use-proxy-switch" checked class="accent-primary h-4 w-4">
+                  <span>تفعيل استخدام البروكسي بالسحب</span>
+                </label>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button onclick="testProxyConnection()" id="btn-test-proxy" class="bg-surface-container-high text-on-surface px-3 py-1 text-xs font-bold hover:bg-surface-container-highest border border-outline-variant flex items-center gap-1 transition">
+                  <span class="material-symbols-outlined text-[15px]">network_check</span>
+                  <span>🔍 فحص البروكسي الآن</span>
+                </button>
+                <button onclick="saveProxies()" class="bg-secondary text-on-secondary px-3 py-1 text-xs font-bold hover:bg-secondary-container transition">حفظ البروكسيات</button>
+              </div>
             </div>
-            <textarea id="engine-proxy-input" rows="3" placeholder="host:port أو host:port:user:pass (ضع بروكسي في كل سطر)" class="w-full bg-surface-container-low border border-outline-variant/60 p-3 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"></textarea>
+
+            <!-- Proxy Live Test Results Box -->
+            <div id="proxy-test-result" class="hidden p-3 text-xs font-mono border"></div>
+
+            <textarea id="engine-proxy-input" rows="3" placeholder="host:port أو host:port:user:pass أو socks5://user:pass@host:port (ضع بروكسي في كل سطر)" class="w-full bg-surface-container-low border border-outline-variant/60 p-3 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"></textarea>
+            
             <div class="flex justify-between items-center text-xs text-on-surface-variant">
               <span id="engine-proxy-count">0 بروكسي نشط مسجل</span>
               <button onclick="clearProxies()" class="text-error hover:underline">مسح جميع البروكسيات</button>
@@ -1052,6 +1071,7 @@
     async function startScrapeEngine() {
       const storesOnly = document.getElementById("cfg-engine-stores-only")?.checked ?? true;
       const incremental = document.getElementById("cfg-engine-incremental")?.checked ?? false;
+      const useProxy = document.getElementById("cfg-use-proxy-switch")?.checked ?? true;
 
       try {
         const res = await fetch("/api/start", {
@@ -1062,6 +1082,7 @@
             country: "DZ",
             stores_only: storesOnly,
             incremental: incremental,
+            use_proxy: useProxy,
             max_results: 1500,
             delay: 1.5
           })
@@ -1080,6 +1101,58 @@
       try {
         await fetch("/api/stop", { method: "POST" });
       } catch (e) {}
+    }
+
+    // Live Proxy Tester
+    async function testProxyConnection() {
+      const proxyInput = document.getElementById("engine-proxy-input")?.value.trim() || "";
+      const resultBox = document.getElementById("proxy-test-result");
+      const testBtn = document.getElementById("btn-test-proxy");
+
+      if (!resultBox) return;
+      resultBox.classList.remove("hidden");
+      resultBox.className = "p-3 text-xs font-mono border border-secondary/40 bg-secondary/5 text-secondary flex items-center gap-2";
+      resultBox.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">sync</span><span>جاري اختبار الاتصال بالبروكسي والاتصال بفيسبوك...</span>`;
+      if (testBtn) testBtn.disabled = true;
+
+      try {
+        const res = await fetch("/api/test_proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proxy: proxyInput })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          resultBox.className = "p-3 text-xs font-mono border border-primary/40 bg-primary/10 text-primary flex items-start justify-between";
+          resultBox.innerHTML = `
+            <div>
+              <div class="font-bold flex items-center gap-1">
+                <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>${data.message}</span>
+              </div>
+              <div class="text-[11px] text-on-surface-variant mt-1">
+                • حالة فيسبوك: ${data.facebook_status} | سرعة الاستجابة: ${data.latency}ms
+              </div>
+            </div>
+            <span class="bg-primary text-on-primary px-1.5 py-0.5 text-[10px] font-bold">شغال 100%</span>
+          `;
+        } else {
+          resultBox.className = "p-3 text-xs font-mono border border-error/40 bg-error/10 text-error flex items-start gap-1";
+          resultBox.innerHTML = `
+            <span class="material-symbols-outlined text-[16px] shrink-0 mt-0.5">error</span>
+            <div>
+              <div class="font-bold">فشل فحص البروكسي:</div>
+              <div class="text-[11px] mt-0.5">${data.error || 'تعذر الاتصال عبر هذا البروكسي'}</div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        resultBox.className = "p-3 text-xs font-mono border border-error/40 bg-error/10 text-error";
+        resultBox.innerHTML = `خطأ في الاتصال بالسيرفر: ${err}`;
+      } finally {
+        if (testBtn) testBtn.disabled = false;
+      }
     }
 
     async function saveProxies() {

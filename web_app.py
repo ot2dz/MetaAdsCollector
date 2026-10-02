@@ -126,13 +126,20 @@ class CollectionManager:
         self.reset()
         start_mono = time.monotonic()
 
-        # Check proxies from input or fallback to database
+        # Check if proxy is explicitly enabled or disabled
+        use_proxy = config.get("use_proxy", True)
         proxy_val = config.get("proxy", "").strip()
         proxies_list = []
-        if proxy_val:
-            proxies_list = [p.strip() for p in proxy_val.split("\n") if p.strip() and not p.startswith("#")]
+
+        if use_proxy:
+            if proxy_val:
+                proxies_list = [p.strip() for p in proxy_val.split("\n") if p.strip() and not p.startswith("#")]
+            else:
+                proxies_list = db.get_active_proxies()
+                if proxies_list:
+                    logger.info("Using %d active proxies from Database.", len(proxies_list))
         else:
-            proxies_list = db.get_active_proxies()
+            logger.info("Proxy disabled by user: running direct connection.")
 
         proxy_pool = None
         if len(proxies_list) > 1:
@@ -451,6 +458,74 @@ def api_db_ads():
 @app.route("/api/db/stats", methods=["GET"])
 def api_db_stats():
     return jsonify(db.get_stats())
+
+@app.route("/api/test_proxy", methods=["POST"])
+def api_test_proxy():
+    """Live proxy tester that checks connection specifically with facebook.com and retrieves outbound IP."""
+    data = request.get_json(force=True, silent=True) or {}
+    proxy_raw = data.get("proxy", "").strip()
+
+    if not proxy_raw:
+        # Check active proxy in DB
+        db_proxies = db.get_active_proxies()
+        if db_proxies:
+            proxy_raw = db_proxies[0]
+        else:
+            return jsonify({"success": False, "error": "يرجى كتابة البروكسي أولاً لفحصه."}), 400
+
+    # Format proxy url
+    proxy_url = proxy_raw
+    if "://" not in proxy_url:
+        parts = proxy_url.split(":")
+        if len(parts) == 4:
+            host, port, user, pwd = parts
+            proxy_url = f"http://{user}:{pwd}@{host}:{port}"
+        elif len(parts) == 2:
+            host, port = parts
+            proxy_url = f"http://{host}:{port}"
+
+    try:
+        from curl_cffi.requests import Session as CffiSession
+        s = CffiSession(impersonate="chrome")
+        s.proxies = {"http": proxy_url, "https": proxy_url}
+
+        t0 = time.time()
+        # Test 1: Check IP retrieval
+        ip_resp = s.get("https://api.ipify.org?format=json", timeout=8)
+        if ip_resp.status_code != 200:
+            return jsonify({
+                "success": False,
+                "error": f"فشل البروكسي في جلب الـ IP (كود: {ip_resp.status_code})."
+            }), 400
+
+        detected_ip = ip_resp.json().get("ip")
+        latency = round((time.time() - t0) * 1000)
+
+        # Test 2: Check specifically with Facebook
+        t_fb = time.time()
+        fb_resp = s.get("https://www.facebook.com/", timeout=10)
+        fb_latency = round((time.time() - t_fb) * 1000)
+
+        if fb_resp.status_code not in [200, 302, 403]:
+            return jsonify({
+                "success": False,
+                "ip": detected_ip,
+                "error": f"البروكسي يعمل لكن فيسبوك قطع الاتصال (كود: {fb_resp.status_code})."
+            }), 400
+
+        return jsonify({
+            "success": True,
+            "ip": detected_ip,
+            "latency": latency,
+            "facebook_status": "متصل بنجاح" if fb_resp.status_code == 200 else f"كود فيسبوك: {fb_resp.status_code}",
+            "message": f"البروكسي شغال بنجاح! IP: {detected_ip} (زمن الاستجابة: {latency}ms)"
+        })
+
+    except Exception as exc:
+        err_msg = str(exc)
+        if "56" in err_msg or "CONNECT" in err_msg:
+            err_msg = "فشل نفق الـ CONNECT (تأكد هل البروكسي من نوع SOCKS5 أو يحظر فيسبوك)."
+        return jsonify({"success": False, "error": f"فشل الاتصال: {err_msg}"}), 400
 
 @app.route("/api/db/proxies", methods=["GET"])
 def api_db_proxies():

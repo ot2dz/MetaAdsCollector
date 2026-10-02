@@ -178,20 +178,26 @@ class MetaAdsClient:
         if not proxy:
             return
 
-        parts = proxy.split(":")
-        if len(parts) == 4:
-            host, port, username, password = parts
-            proxy_url = f"http://{username}:{password}@{host}:{port}"
-        elif len(parts) == 2:
-            host, port = parts
-            proxy_url = f"http://{host}:{port}"
+        proxy_clean = proxy.strip()
+        if "://" in proxy_clean:
+            proxy_url = proxy_clean
         else:
-            raise ProxyError(f"Invalid proxy format: {proxy!r}. Expected host:port or host:port:user:pass")
+            parts = proxy_clean.split(":")
+            if len(parts) == 4:
+                host, port, username, password = parts
+                proxy_url = f"http://{username}:{password}@{host}:{port}"
+            elif len(parts) == 2:
+                host, port = parts
+                proxy_url = f"http://{host}:{port}"
+            else:
+                raise ProxyError(f"Invalid proxy format: {proxy!r}. Expected host:port or host:port:user:pass")
 
         self.session.proxies = {
             "http": proxy_url,
             "https": proxy_url,
         }
+        self._current_proxy = proxy_url
+        logger.info(f"Configured active proxy tunnel: {proxy_url.split('@')[-1]}")
 
     def _extract_tokens(self, html: str) -> dict[str, str]:
         tokens = {}
