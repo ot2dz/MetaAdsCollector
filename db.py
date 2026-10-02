@@ -1,15 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Database Management for Meta Ads Collector
-===========================================
-Supports PostgreSQL in production (via DATABASE_URL from Coolify/Docker)
-with an automatic SQLite fallback for local development.
-
-Manages:
-- Storing and deduplicating collected ads
-- Persistent proxy pool management (add, delete, status tracking)
-- Collection history & statistics
-- Deletion & Factory Reset
+Database Management for Meta Ads Collector & E-commerce Intelligence (DZ-AdSpy)
+Supports PostgreSQL in production with automatic SQLite fallback.
 """
 
 from __future__ import annotations
@@ -17,13 +9,62 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger("meta_ads_db")
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+def extract_store_domain(url: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Extract clean store domain and detect e-commerce platform.
+    Filters out non-store URLs like WhatsApp, Messenger, Facebook, etc.
+    """
+    if not url or not isinstance(url, str):
+        return None, None
+
+    url_clean = url.strip()
+    # Exclude social/chat URLs completely
+    ignored_patterns = [
+        r"wa\.me", r"whatsapp\.com", r"m\.me", r"messenger\.com",
+        r"facebook\.com", r"fb\.com", r"fb\.watch", r"instagram\.com",
+        r"t\.me", r"telegram\.me", r"tiktok\.com", r"youtube\.com",
+        r"bit\.ly", r"linktr\.ee"
+    ]
+    for pat in ignored_patterns:
+        if re.search(pat, url_clean, re.IGNORECASE):
+            return None, None
+
+    try:
+        if not url_clean.startswith(("http://", "https://")):
+            url_clean = "https://" + url_clean
+        parsed = urlparse(url_clean)
+        netloc = parsed.netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        
+        # Must have at least one dot and valid domain
+        if "." not in netloc or len(netloc) < 4:
+            return None, None
+
+        # Platform detection
+        platform = "Custom Domain"
+        if "youcan.shop" in netloc or "youcan.store" in netloc:
+            platform = "YouCan Shop"
+        elif "myshopify.com" in netloc or "shopify" in url_clean:
+            platform = "Shopify"
+        elif "woocommerce" in url_clean:
+            platform = "WooCommerce"
+        elif netloc.endswith(".dz"):
+            platform = "Algerian (.dz)"
+
+        return netloc, platform
+    except Exception:
+        return None, None
 
 
 class DatabaseManager:
@@ -35,7 +76,6 @@ class DatabaseManager:
             self.db_url and (self.db_url.startswith("postgres://") or self.db_url.startswith("postgresql://"))
         )
         if self.is_postgres and self.db_url.startswith("postgres://"):
-            # Fix standard SQLAlchemy / Heroku / Coolify url format
             self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
 
         self.sqlite_path = os.path.join(os.path.dirname(__file__), "meta_ads_db.sqlite")
@@ -54,11 +94,9 @@ class DatabaseManager:
             return conn
 
     def _execute(self, query: str, params: tuple = (), fetch: str = "none") -> Any:
-        """Execute a query adapting placeholder syntax (%s for Postgres, ? for SQLite)."""
         conn = self.get_connection()
         try:
             if not self.is_postgres:
-                # Convert %s to ? for SQLite
                 sqlite_query = query.replace("%s", "?")
                 cur = conn.cursor()
                 cur.execute(sqlite_query, params)
@@ -85,11 +123,10 @@ class DatabaseManager:
             conn.close()
 
     def init_db(self):
-        """Initialize database tables for ads, proxies, and logs."""
+        """Initialize database tables for ads, proxies, logs, and competitor watchlist."""
         logger.info(f"Initializing database (Backend: {'PostgreSQL' if self.is_postgres else 'SQLite'})...")
 
         if self.is_postgres:
-            # PostgreSQL schema
             self._execute("""
                 CREATE TABLE IF NOT EXISTS ads (
                     id VARCHAR(64) PRIMARY KEY,
@@ -99,6 +136,8 @@ class DatabaseManager:
                     body TEXT,
                     title TEXT,
                     link_url TEXT,
+                    store_domain TEXT,
+                    store_platform VARCHAR(50),
                     image_url TEXT,
                     video_url TEXT,
                     cta_text VARCHAR(100),
@@ -112,6 +151,20 @@ class DatabaseManager:
                     country VARCHAR(10),
                     collected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                     raw_json JSONB
+                );
+            """)
+
+            self._execute("""
+                CREATE TABLE IF NOT EXISTS competitor_watchlist (
+                    id SERIAL PRIMARY KEY,
+                    target_identifier TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    store_domain TEXT,
+                    platform VARCHAR(50),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    last_inspected TIMESTAMP WITH TIME ZONE,
+                    status VARCHAR(20) DEFAULT 'ACTIVE',
+                    notes TEXT
                 );
             """)
 
@@ -137,7 +190,6 @@ class DatabaseManager:
                 );
             """)
         else:
-            # SQLite schema
             self._execute("""
                 CREATE TABLE IF NOT EXISTS ads (
                     id TEXT PRIMARY KEY,
@@ -147,6 +199,8 @@ class DatabaseManager:
                     body TEXT,
                     title TEXT,
                     link_url TEXT,
+                    store_domain TEXT,
+                    store_platform TEXT,
                     image_url TEXT,
                     video_url TEXT,
                     cta_text TEXT,
@@ -160,6 +214,20 @@ class DatabaseManager:
                     country TEXT,
                     collected_at TEXT,
                     raw_json TEXT
+                );
+            """)
+
+            self._execute("""
+                CREATE TABLE IF NOT EXISTS competitor_watchlist (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    target_identifier TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    store_domain TEXT,
+                    platform TEXT,
+                    created_at TEXT,
+                    last_inspected TEXT,
+                    status TEXT DEFAULT 'ACTIVE',
+                    notes TEXT
                 );
             """)
 
@@ -185,10 +253,39 @@ class DatabaseManager:
                 );
             """)
 
+        # ── Auto-Migration: Ensure store_domain & store_platform exist ────────
+        try:
+            if not self.is_postgres:
+                cols = [r["name"] for r in (self._execute("PRAGMA table_info(ads)", fetch="all") or [])]
+                if "store_domain" not in cols:
+                    logger.info("Migrating SQLite schema: Adding store_domain column...")
+                    self._execute("ALTER TABLE ads ADD COLUMN store_domain TEXT DEFAULT '';")
+                if "store_platform" not in cols:
+                    logger.info("Migrating SQLite schema: Adding store_platform column...")
+                    self._execute("ALTER TABLE ads ADD COLUMN store_platform TEXT DEFAULT 'Custom Domain';")
+            else:
+                self._execute("""
+                    DO $$ 
+                    BEGIN 
+                        BEGIN
+                            ALTER TABLE ads ADD COLUMN store_domain TEXT DEFAULT '';
+                        EXCEPTION
+                            WHEN duplicate_column THEN NULL;
+                        END;
+                        BEGIN
+                            ALTER TABLE ads ADD COLUMN store_platform VARCHAR(50) DEFAULT 'Custom Domain';
+                        EXCEPTION
+                            WHEN duplicate_column THEN NULL;
+                        END;
+                    END $$;
+                """)
+        except Exception as mig_err:
+            logger.warning("Schema migration notice: %s", mig_err)
+
     # ── Ads Management ────────────────────────────────────────────────────────
 
-    def save_ad(self, ad: dict[str, Any], query: str = "", country: str = "DZ") -> bool:
-        """Insert or update an ad in the database."""
+    def save_ad(self, ad: dict[str, Any], query: str = "", country: str = "DZ", stores_only: bool = True) -> bool:
+        """Insert or update an ad in the database with strict store domain filtering."""
         ad_id = str(ad.get("id") or "")
         if not ad_id:
             return False
@@ -196,15 +293,23 @@ class DatabaseManager:
         page = ad.get("page") or {}
         creatives = ad.get("creatives") or []
         primary_creative = creatives[0] if creatives else {}
+        link_url = primary_creative.get("link_url") or ""
+
+        # Domain and store platform extraction
+        store_domain, store_platform = extract_store_domain(link_url)
+
+        # If user strictly requires e-commerce stores only, filter out ads without valid store domains
+        if stores_only and not store_domain:
+            return False
+
         imp = ad.get("impressions") or {}
         spd = ad.get("spend") or {}
-
         imp_str = f"{imp.get('lower_bound', '')} - {imp.get('upper_bound', '')}" if imp else ""
         spd_str = f"{spd.get('lower_bound', '')} - {spd.get('upper_bound', '')}" if spd else ""
         platforms = ",".join(ad.get("publisher_platforms") or [])
         now_iso = datetime.now(timezone.utc).isoformat()
-
         raw_data_str = json.dumps(ad, ensure_ascii=False)
+        is_active_val = bool(ad.get("is_active")) if self.is_postgres else (1 if ad.get("is_active") else 0)
 
         params = (
             ad_id,
@@ -213,7 +318,9 @@ class DatabaseManager:
             page.get("profile_picture_url") or "",
             primary_creative.get("body") or "",
             primary_creative.get("title") or "",
-            primary_creative.get("link_url") or "",
+            link_url,
+            store_domain or "",
+            store_platform or "Custom Domain",
             primary_creative.get("image_url") or primary_creative.get("thumbnail_url") or "",
             primary_creative.get("video_url") or primary_creative.get("video_hd_url") or "",
             primary_creative.get("cta_text") or "",
@@ -221,7 +328,7 @@ class DatabaseManager:
             spd_str,
             spd.get("currency") or "",
             platforms,
-            1 if ad.get("is_active") else 0,
+            is_active_val,
             ad.get("delivery_start_time") or "",
             query,
             country,
@@ -233,12 +340,14 @@ class DatabaseManager:
             query_sql = """
                 INSERT INTO ads (
                     id, page_id, page_name, page_profile_pic, body, title, link_url,
-                    image_url, video_url, cta_text, impressions_text, spend_text,
-                    currency, publisher_platforms, is_active, delivery_start_time,
-                    search_query, country, collected_at, raw_json
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    store_domain, store_platform, image_url, video_url, cta_text,
+                    impressions_text, spend_text, currency, publisher_platforms,
+                    is_active, delivery_start_time, search_query, country, collected_at, raw_json
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
                 ON CONFLICT (id) DO UPDATE SET
                     is_active = EXCLUDED.is_active,
+                    store_domain = EXCLUDED.store_domain,
+                    store_platform = EXCLUDED.store_platform,
                     impressions_text = EXCLUDED.impressions_text,
                     spend_text = EXCLUDED.spend_text,
                     collected_at = EXCLUDED.collected_at,
@@ -248,12 +357,14 @@ class DatabaseManager:
             query_sql = """
                 INSERT INTO ads (
                     id, page_id, page_name, page_profile_pic, body, title, link_url,
-                    image_url, video_url, cta_text, impressions_text, spend_text,
-                    currency, publisher_platforms, is_active, delivery_start_time,
-                    search_query, country, collected_at, raw_json
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    store_domain, store_platform, image_url, video_url, cta_text,
+                    impressions_text, spend_text, currency, publisher_platforms,
+                    is_active, delivery_start_time, search_query, country, collected_at, raw_json
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     is_active = excluded.is_active,
+                    store_domain = excluded.store_domain,
+                    store_platform = excluded.store_platform,
                     impressions_text = excluded.impressions_text,
                     spend_text = excluded.spend_text,
                     collected_at = excluded.collected_at,
@@ -263,20 +374,18 @@ class DatabaseManager:
         self._execute(query_sql, params)
         return True
 
-    def is_ad_seen(self, ad_id: str) -> bool:
-        """Check if an ad ID already exists in the database."""
-        row = self._execute("SELECT 1 FROM ads WHERE id = %s LIMIT 1", (str(ad_id),), fetch="one")
-        return bool(row)
-
-    def get_ads(self, limit: int = 50, offset: int = 0, query: str = "", country: str = "") -> list[dict[str, Any]]:
+    def get_ads(self, limit: int = 60, offset: int = 0, query: str = "", country: str = "", stores_only: bool = True) -> list[dict[str, Any]]:
         """Retrieve stored ads with optional search and pagination."""
         sql = "SELECT * FROM ads WHERE 1=1"
         params: list[Any] = []
 
+        if stores_only:
+            sql += " AND store_domain != '' AND store_domain IS NOT NULL"
+
         if query:
-            sql += " AND (body ILIKE %s OR page_name ILIKE %s OR title ILIKE %s)" if self.is_postgres else " AND (body LIKE %s OR page_name LIKE %s OR title LIKE %s)"
+            sql += " AND (body ILIKE %s OR page_name ILIKE %s OR title ILIKE %s OR store_domain ILIKE %s)" if self.is_postgres else " AND (body LIKE %s OR page_name LIKE %s OR title LIKE %s OR store_domain LIKE %s)"
             q_like = f"%{query}%"
-            params.extend([q_like, q_like, q_like])
+            params.extend([q_like, q_like, q_like, q_like])
 
         if country:
             sql += " AND country = %s"
@@ -287,6 +396,8 @@ class DatabaseManager:
 
         rows = self._execute(sql, tuple(params), fetch="all") or []
         for r in rows:
+            if isinstance(r.get("collected_at"), datetime):
+                r["collected_at"] = r["collected_at"].isoformat()
             if isinstance(r.get("raw_json"), str):
                 try:
                     r["raw_json"] = json.loads(r["raw_json"])
@@ -294,15 +405,25 @@ class DatabaseManager:
                     pass
         return rows
 
-    def count_ads(self, query: str = "", country: str = "") -> int:
-        """Count total ads stored in database."""
+    def count_ads(self, query: str = "", country: str = "", stores_only: bool = True) -> int:
         sql = "SELECT COUNT(*) as count FROM ads WHERE 1=1"
         params: list[Any] = []
 
+        if stores_only:
+            try:
+                if not self.is_postgres:
+                    cols = [r["name"] for r in (self._execute("PRAGMA table_info(ads)", fetch="all") or [])]
+                    if "store_domain" in cols:
+                        sql += " AND store_domain != '' AND store_domain IS NOT NULL"
+                else:
+                    sql += " AND store_domain != '' AND store_domain IS NOT NULL"
+            except Exception:
+                pass
+
         if query:
-            sql += " AND (body ILIKE %s OR page_name ILIKE %s OR title ILIKE %s)" if self.is_postgres else " AND (body LIKE %s OR page_name LIKE %s OR title LIKE %s)"
+            sql += " AND (body ILIKE %s OR page_name ILIKE %s OR title ILIKE %s OR store_domain ILIKE %s)" if self.is_postgres else " AND (body LIKE %s OR page_name LIKE %s OR title LIKE %s OR store_domain LIKE %s)"
             q_like = f"%{query}%"
-            params.extend([q_like, q_like, q_like])
+            params.extend([q_like, q_like, q_like, q_like])
 
         if country:
             sql += " AND country = %s"
@@ -311,43 +432,87 @@ class DatabaseManager:
         res = self._execute(sql, tuple(params), fetch="one")
         return res["count"] if res else 0
 
-    def delete_ad(self, ad_id: str) -> bool:
-        """Delete a single ad by ID."""
-        self._execute("DELETE FROM ads WHERE id = %s", (str(ad_id),))
-        return True
+    def get_stores_directory(self, platform: str = "", search: str = "") -> list[dict[str, Any]]:
+        """Group ads by store domain to build an Algerian stores directory with telemetry."""
+        # Ensure column exists before query
+        try:
+            if not self.is_postgres:
+                cols = [r["name"] for r in (self._execute("PRAGMA table_info(ads)", fetch="all") or [])]
+                if "store_domain" not in cols:
+                    return []
+        except Exception:
+            return []
 
-    def clear_ads(self) -> int:
-        """Delete all ads from database."""
-        count = self.count_ads()
-        self._execute("DELETE FROM ads")
-        return count
+        sql = """
+            SELECT 
+                store_domain,
+                MAX(store_platform) as platform,
+                MAX(page_name) as page_name,
+                MAX(page_profile_pic) as profile_pic,
+                MAX(link_url) as sample_url,
+                COUNT(id) as total_ads,
+                MIN(delivery_start_time) as oldest_ad_date,
+                MAX(delivery_start_time) as newest_ad_date
+            FROM ads
+            WHERE store_domain != '' AND store_domain IS NOT NULL
+        """
+        params: list[Any] = []
 
-    # ── Proxies Management ────────────────────────────────────────────────────
+        if platform and platform.lower() != "all":
+            sql += " AND store_platform ILIKE %s" if self.is_postgres else " AND store_platform LIKE %s"
+            params.append(f"%{platform}%")
 
-    def add_proxy(self, proxy_url: str) -> bool:
-        """Add a proxy to the database."""
-        p_clean = proxy_url.strip()
-        if not p_clean or p_clean.startswith("#"):
-            return False
+        if search:
+            sql += " AND (store_domain ILIKE %s OR page_name ILIKE %s)" if self.is_postgres else " AND (store_domain LIKE %s OR page_name LIKE %s)"
+            q_like = f"%{search}%"
+            params.extend([q_like, q_like])
 
+        sql += " GROUP BY store_domain ORDER BY total_ads DESC LIMIT 150"
+        return self._execute(sql, tuple(params), fetch="all") or []
+
+    # ── Watchlist Management ──────────────────────────────────────────────────
+
+    def add_watchlist_item(self, target: str, name: str = "", store_domain: str = "", platform: str = "") -> bool:
         now_iso = datetime.now(timezone.utc).isoformat()
         if self.is_postgres:
             sql = """
-                INSERT INTO proxies (proxy_url, is_active, failures, created_at)
-                VALUES (%s, TRUE, 0, %s)
-                ON CONFLICT (proxy_url) DO UPDATE SET is_active = TRUE;
+                INSERT INTO competitor_watchlist (target_identifier, name, store_domain, platform, created_at, status)
+                VALUES (%s, %s, %s, %s, %s, 'ACTIVE')
+                ON CONFLICT (target_identifier) DO UPDATE SET status = 'ACTIVE';
             """
         else:
             sql = """
-                INSERT INTO proxies (proxy_url, is_active, failures, created_at)
-                VALUES (%s, 1, 0, %s)
-                ON CONFLICT (proxy_url) DO UPDATE SET is_active = 1;
+                INSERT INTO competitor_watchlist (target_identifier, name, store_domain, platform, created_at, status)
+                VALUES (%s, %s, %s, %s, %s, 'ACTIVE')
+                ON CONFLICT (target_identifier) DO UPDATE SET status = 'ACTIVE';
             """
+        self._execute(sql, (target.strip(), name.strip(), store_domain.strip(), platform.strip(), now_iso))
+        return True
+
+    def get_watchlist(self) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM competitor_watchlist ORDER BY id DESC"
+        rows = self._execute(sql, fetch="all") or []
+        for r in rows:
+            if isinstance(r.get("created_at"), datetime):
+                r["created_at"] = r["created_at"].isoformat()
+        return rows
+
+    def remove_watchlist_item(self, item_id: int) -> bool:
+        self._execute("DELETE FROM competitor_watchlist WHERE id = %s", (item_id,))
+        return True
+
+    # ── Proxies & Logs ────────────────────────────────────────────────────────
+
+    def add_proxy(self, proxy_url: str) -> bool:
+        p_clean = proxy_url.strip()
+        if not p_clean or p_clean.startswith("#"):
+            return False
+        now_iso = datetime.now(timezone.utc).isoformat()
+        sql = "INSERT INTO proxies (proxy_url, is_active, failures, created_at) VALUES (%s, TRUE, 0, %s) ON CONFLICT (proxy_url) DO UPDATE SET is_active = TRUE;" if self.is_postgres else "INSERT INTO proxies (proxy_url, is_active, failures, created_at) VALUES (%s, 1, 0, %s) ON CONFLICT (proxy_url) DO UPDATE SET is_active = 1;"
         self._execute(sql, (p_clean, now_iso))
         return True
 
     def add_proxies_bulk(self, proxy_text: str) -> int:
-        """Add multiple proxies from multiline string."""
         added = 0
         for line in proxy_text.splitlines():
             if self.add_proxy(line):
@@ -355,72 +520,68 @@ class DatabaseManager:
         return added
 
     def get_active_proxies(self) -> list[str]:
-        """Return list of active proxy strings for ProxyPool."""
         sql = "SELECT proxy_url FROM proxies WHERE is_active = TRUE" if self.is_postgres else "SELECT proxy_url FROM proxies WHERE is_active = 1"
         rows = self._execute(sql, fetch="all") or []
         return [r["proxy_url"] for r in rows]
 
     def get_all_proxies(self) -> list[dict[str, Any]]:
-        """Return all proxies with their operational stats."""
-        sql = "SELECT * FROM proxies ORDER BY id DESC"
-        return self._execute(sql, fetch="all") or []
-
-    def update_proxy_status(self, proxy_url: str, success: bool):
-        """Update proxy operational metrics."""
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if success:
-            sql = "UPDATE proxies SET failures = 0, last_used = %s WHERE proxy_url = %s"
-            self._execute(sql, (now_iso, proxy_url))
-        else:
-            sql = "UPDATE proxies SET failures = failures + 1, last_used = %s WHERE proxy_url = %s"
-            self._execute(sql, (now_iso, proxy_url))
-            # Deactivate if failures exceed threshold
-            deactivate_sql = "UPDATE proxies SET is_active = FALSE WHERE proxy_url = %s AND failures >= 5" if self.is_postgres else "UPDATE proxies SET is_active = 0 WHERE proxy_url = %s AND failures >= 5"
-            self._execute(deactivate_sql, (proxy_url,))
+        rows = self._execute("SELECT * FROM proxies ORDER BY id DESC", fetch="all") or []
+        for r in rows:
+            if isinstance(r.get("created_at"), datetime):
+                r["created_at"] = r["created_at"].isoformat()
+            if isinstance(r.get("last_used"), datetime):
+                r["last_used"] = r["last_used"].isoformat()
+        return rows
 
     def delete_proxy(self, proxy_id: int) -> bool:
-        """Delete a proxy from database."""
         self._execute("DELETE FROM proxies WHERE id = %s", (proxy_id,))
         return True
 
     def clear_proxies(self) -> int:
-        """Delete all proxies from database."""
         proxies = self.get_all_proxies()
         self._execute("DELETE FROM proxies")
         return len(proxies)
 
-    # ── System Logs & Factory Reset ───────────────────────────────────────────
-
     def log_collection(self, query: str, country: str, total_collected: int, duration_seconds: float):
-        """Record collection run metrics."""
         now_iso = datetime.now(timezone.utc).isoformat()
         sql = "INSERT INTO collection_logs (query, country, total_collected, duration_seconds, created_at) VALUES (%s, %s, %s, %s, %s)"
         self._execute(sql, (query, country, total_collected, duration_seconds, now_iso))
 
     def get_stats(self) -> dict[str, Any]:
-        """Return overall database statistics."""
-        ads_count = self.count_ads()
+        ads_count = self.count_ads(stores_only=True)
+        all_ads_count = self.count_ads(stores_only=False)
+        stores_count = len(self.get_stores_directory())
+        watchlist_count = len(self.get_watchlist())
         proxies_total = len(self.get_all_proxies())
-        proxies_active = len(self.get_active_proxies())
+
         last_log = self._execute("SELECT * FROM collection_logs ORDER BY id DESC LIMIT 1", fetch="one")
+        if last_log and isinstance(last_log.get("created_at"), datetime):
+            last_log["created_at"] = last_log["created_at"].isoformat()
 
         return {
             "backend": "PostgreSQL" if self.is_postgres else "SQLite",
-            "total_ads": ads_count,
+            "total_store_ads": int(ads_count),
+            "total_all_ads": int(all_ads_count),
+            "total_stores": int(stores_count),
+            "watchlist_count": int(watchlist_count),
             "total_proxies": proxies_total,
-            "active_proxies": proxies_active,
             "last_collection": last_log,
         }
 
+    def clear_ads(self) -> int:
+        count = self.count_ads(stores_only=False)
+        self._execute("DELETE FROM ads")
+        return count
+
     def factory_reset(self) -> bool:
-        """Complete reset: drop and recreate all tables."""
-        logger.warning("FACTORY RESET TRIGGERED: Rebuilding database tables...")
         if self.is_postgres:
             self._execute("DROP TABLE IF EXISTS ads CASCADE;")
+            self._execute("DROP TABLE IF EXISTS competitor_watchlist CASCADE;")
             self._execute("DROP TABLE IF EXISTS proxies CASCADE;")
             self._execute("DROP TABLE IF EXISTS collection_logs CASCADE;")
         else:
             self._execute("DROP TABLE IF EXISTS ads;")
+            self._execute("DROP TABLE IF EXISTS competitor_watchlist;")
             self._execute("DROP TABLE IF EXISTS proxies;")
             self._execute("DROP TABLE IF EXISTS collection_logs;")
         self.init_db()

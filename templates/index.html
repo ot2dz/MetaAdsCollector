@@ -1,992 +1,1157 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="h-full bg-slate-950 text-slate-100">
+<html dir="rtl" lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meta Ads Collector Dashboard</title>
-  <!-- Tailwind CSS CDN -->
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>DZ-AdSpy - منصة استخبارات التجارة الإلكترونية الجزائرية</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Geist:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #faf9ff; }
+    ::-webkit-scrollbar-thumb { background: #bccac0; }
+    ::-webkit-scrollbar-thumb:hover { background: #6d7a72; }
+    .font-mono-num { font-variant-numeric: tabular-nums; }
+  </style>
+
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Cairo & Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
-      darkMode: 'class',
+      darkMode: "class",
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['Cairo', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
           colors: {
-            brand: {
-              50: '#eff6ff',
-              500: '#3b82f6',
-              600: '#2563eb',
-              700: '#1d4ed8',
-            }
+            "background": "#faf9ff",
+            "surface": "#faf9ff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f1f3ff",
+            "surface-container": "#ebedfb",
+            "surface-container-high": "#e5e8f5",
+            "surface-container-highest": "#dfe2ef",
+            "on-surface": "#181b25",
+            "on-surface-variant": "#3d4a42",
+            "primary": "#006948",
+            "primary-container": "#00855d",
+            "on-primary": "#ffffff",
+            "secondary": "#1d4ed8",
+            "secondary-container": "#4069f2",
+            "on-secondary": "#ffffff",
+            "tertiary": "#8d4b00",
+            "tertiary-fixed": "#ffdcc3",
+            "on-tertiary-fixed": "#2f1500",
+            "outline": "#6d7a72",
+            "outline-variant": "#bccac0",
+            "error": "#ba1a1a"
+          },
+          fontFamily: {
+            display: ["Space Grotesk", "sans-serif"],
+            headline: ["Space Grotesk", "Cairo", "sans-serif"],
+            body: ["Geist", "Cairo", "sans-serif"],
           }
         }
       }
-    }
+    };
   </script>
-  <style>
-    /* Custom scrollbars */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    .badge-platform {
-      @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
-    }
-  </style>
 </head>
-<body class="h-full flex flex-col font-sans bg-slate-950 text-slate-100 overflow-hidden">
 
-  <!-- Top Navigation Header -->
-  <header class="h-16 border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 flex items-center justify-between z-20 flex-shrink-0">
+<body class="bg-surface text-on-surface antialiased select-none min-h-screen flex flex-col">
+
+  <!-- Fixed Top Header -->
+  <header class="fixed top-0 w-full z-50 bg-surface-container-lowest border-b border-outline-variant/40 shadow-sm h-16 flex items-center justify-between px-6">
     <div class="flex items-center gap-6">
+      <!-- Logo -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold text-white flex items-center gap-2">
-            Meta Ads Intelligence
-            <span class="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono">Algeria 🇩🇿</span>
-          </h1>
-          <p class="text-xs text-slate-400">منصة سحب وتحليل إعلانات المنافسين وكشف المنتجات الرابحة</p>
-        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" width="160" height="40" fill="none">
+          <rect width="44" height="44" x="8" y="8" rx="0" fill="#1D4ED8"/>
+          <circle cx="30" cy="30" r="14" stroke="#FFFFFF" stroke-width="2.5" stroke-dasharray="4 2" opacity="0.6"/>
+          <circle cx="30" cy="30" r="8" stroke="#FFFFFF" stroke-width="2" opacity="0.9"/>
+          <circle cx="30" cy="30" r="3.5" fill="#006948"/>
+          <path d="M30 30L39 21" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"/>
+          <text x="62" y="29" font-family="'Cairo', sans-serif" font-weight="800" font-size="20" fill="#181B25" letter-spacing="-0.5">DZ-AdSpy</text>
+          <text x="62" y="45" font-family="'Cairo', sans-serif" font-weight="700" font-size="12" fill="#1D4ED8">رادار الإعلانات الجزائري</text>
+        </svg>
       </div>
 
-      <!-- Simple Badge -->
-      <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-        <span>وضع البحث السريع والخفيف</span>
+      <!-- Live Sync Telemetry Status & IP Display -->
+      <div class="hidden xl:flex items-center gap-4 border-r border-outline-variant/40 pr-4 text-xs font-semibold text-on-surface-variant">
+        <div class="flex items-center gap-2 bg-surface-container-low px-3 py-1 text-primary">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full bg-primary opacity-75"></span>
+            <span class="relative inline-flex h-2 w-2 bg-primary"></span>
+          </span>
+          <span class="font-bold">مزامنة تكتيكية (سحب تلقائي COD 58 ولاية)</span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="bg-surface-container-low px-2 py-0.5 font-mono text-on-surface font-bold" id="header-ads-count">0 إعلان متجر</span>
+          <span class="text-outline-variant">|</span>
+          <span class="bg-surface-container-low px-2 py-0.5 font-mono text-on-surface font-bold" id="header-stores-count">0 متجر نشط</span>
+        </div>
+
+        <!-- Outbound IP Telemetry Badge -->
+        <div class="flex items-center gap-1.5 bg-surface-container px-2.5 py-1 border border-outline-variant/60 font-mono text-[11px]" title="عنوان الآيبي الفعلي الذي يراه فيسبوك أثناء السحب">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="ip-indicator-dot"></span>
+          <span class="text-on-surface-variant font-bold">IP:</span>
+          <span class="text-secondary font-bold" id="ip-address-display">جاري الكشف...</span>
+          <span class="bg-primary/10 text-primary px-1 py-0.2 text-[9px] font-bold" id="ip-type-badge">DIRECT</span>
+        </div>
       </div>
     </div>
 
-    <!-- Live Status Indicators -->
-    <div class="flex items-center gap-6">
-      <div class="flex items-center gap-4 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2">
-        <div class="text-center">
-          <div class="text-xs text-slate-400">الإعلانات</div>
-          <div id="stat-ads" class="text-base font-bold text-blue-400 font-mono">0</div>
-        </div>
-        <div class="w-px h-6 bg-slate-800"></div>
-        <div class="text-center">
-          <div class="text-xs text-slate-400">الصفحات</div>
-          <div id="stat-pages" class="text-base font-bold text-indigo-400 font-mono">0</div>
-        </div>
-        <div class="w-px h-6 bg-slate-800"></div>
-        <div class="text-center">
-          <div class="text-xs text-slate-400">السرعة</div>
-          <div id="stat-speed" class="text-base font-bold text-emerald-400 font-mono">0.0 /ث</div>
-        </div>
-        <div class="w-px h-6 bg-slate-800"></div>
-        <div class="text-center">
-          <div class="text-xs text-slate-400">الوقت</div>
-          <div id="stat-time" class="text-base font-bold text-amber-400 font-mono">00:00</div>
-        </div>
-        <div class="w-px h-6 bg-slate-800"></div>
-        <div class="text-center cursor-pointer" onclick="switchTab('db')">
-          <div class="text-xs text-slate-400">قاعدة البيانات</div>
-          <div id="stat-db-total" class="text-base font-bold text-purple-400 font-mono">0 🗄️</div>
-        </div>
-      </div>
+    <!-- Navigation Bar -->
+    <nav class="hidden lg:flex items-center gap-1 bg-surface-container-low p-1 border border-outline-variant/40 text-xs">
+      <button onclick="switchView('discovery')" id="nav-btn-discovery" class="px-4 py-2 font-bold bg-primary text-on-primary transition-all">
+        اكتشاف الإعلانات الرابحة
+      </button>
+      <button onclick="switchView('stores')" id="nav-btn-stores" class="px-4 py-2 font-bold text-on-surface-variant hover:text-on-surface transition-all">
+        دليل ومتاجر الجزائر
+      </button>
+      <button onclick="switchView('watchlist')" id="nav-btn-watchlist" class="px-4 py-2 font-bold text-on-surface-variant hover:text-on-surface transition-all">
+        رادار مراقبة المنافسين
+      </button>
+      <button onclick="switchView('engine')" id="nav-btn-engine" class="px-4 py-2 font-bold text-on-surface-variant hover:text-on-surface transition-all">
+        محرك السحب والجدولة
+      </button>
+    </nav>
 
-      <!-- Action status badge -->
-      <div id="status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
-        <span id="status-text">جاهز</span>
+    <!-- Top Right Actions -->
+    <div class="flex items-center gap-3">
+      <!-- Emergency Stop Button -->
+      <button onclick="emergencyStop()" id="btn-top-stop" class="hidden flex items-center gap-1 bg-error text-white px-3 py-1.5 text-xs font-bold hover:bg-red-700 transition shadow-sm animate-pulse">
+        <span class="material-symbols-outlined text-[16px]">stop_circle</span>
+        <span>إيقاف السحب فوراً 🔴</span>
+      </button>
+
+      <button onclick="triggerQuickSync()" id="btn-quick-sync" class="flex items-center gap-1 bg-secondary text-on-secondary px-3 py-1.5 text-xs font-bold hover:bg-secondary-container transition shadow-sm active:translate-y-0.5">
+        <span class="material-symbols-outlined text-[16px]">sync</span>
+        <span>تحديث السحب الآن</span>
+      </button>
+      
+      <div class="hidden sm:flex items-center gap-2 border-r border-outline-variant/40 pr-3 text-xs">
+        <div class="text-left">
+          <div class="font-bold leading-tight">خطة المحترفين VIP</div>
+          <div class="text-[10px] text-primary font-mono font-bold">58 ولاية نشطة</div>
+        </div>
+        <div class="w-8 h-8 bg-primary text-on-primary flex items-center justify-center font-bold text-xs">
+          DZ
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Collector Layout -->
-  <div class="flex-1 flex overflow-hidden">
+  <!-- Main Viewports Router -->
+  <main class="w-full pt-16 flex-1 flex flex-col bg-surface">
 
-    <!-- Sidebar: Search & Config Controls -->
-    <aside class="w-96 border-l border-slate-800 bg-slate-900/60 p-5 flex flex-col gap-4 overflow-y-auto flex-shrink-0">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-        <span class="text-sm font-bold text-slate-200">إعدادات الجمع والبحث</span>
-        <button id="btn-page-search-modal" class="text-xs text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
-          🔍 بحث عن صفحة بالاسم
-        </button>
-      </div>
-
-      <div class="space-y-4 text-xs">
-        <!-- Search Query -->
+    <!-- ========================================================================= -->
+    <!-- VIEW 1: ADS DISCOVERY (اكتشاف الإعلانات الرابحة) -->
+    <!-- ========================================================================= -->
+    <section id="view-discovery" class="w-full flex flex-col">
+      <!-- Sub-header -->
+      <div class="w-full px-6 py-4 bg-surface-container-lowest border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">كلمة البحث (Query)</label>
-          <input type="text" id="cfg-query" placeholder="مثال: عقارات، ملابس، كورس..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-        </div>
-
-        <!-- Country & Ad Type -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-300 font-semibold mb-1">الدولة المستهدفة</label>
-            <div class="w-full bg-slate-950/80 border border-emerald-500/40 rounded-lg px-3 py-2 text-sm text-emerald-400 font-bold flex items-center justify-between">
-              <span>🇩🇿 الجزائر (DZ)</span>
-              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">مثبت</span>
-            </div>
-            <input type="hidden" id="cfg-country" value="DZ">
+          <div class="flex items-center gap-1.5 text-primary text-xs font-bold uppercase tracking-wider mb-1">
+            <span class="material-symbols-outlined text-[16px]">radar</span>
+            <span>رادار المراقبة الحية • السوق الجزائري (COD)</span>
           </div>
-
-          <div>
-            <label class="block text-slate-300 font-semibold mb-1">نوع الإعلان (Type)</label>
-            <select id="cfg-ad-type" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-              <option value="ALL" selected>الكل (تجاري)</option>
-              <option value="POLITICAL_AND_ISSUE_ADS">سياسي / قضايا</option>
-              <option value="HOUSING_ADS">عقارات وإسكان</option>
-              <option value="EMPLOYMENT_ADS">وظائف وتوظيف</option>
-              <option value="CREDIT_ADS">قروض وائتمان</option>
-            </select>
-          </div>
+          <h1 class="text-2xl font-bold tracking-tight text-on-surface">اكتشاف الإعلانات الرابحة في السوق الجزائري</h1>
+          <p class="text-xs text-on-surface-variant mt-1">متابعة إعلانات فيسبوك النشطة للمتاجر الحقيقية فقط والدفع عند الاستلام (COD) مع استبعاد الواتساب والمسنجر.</p>
         </div>
-
-        <!-- Status & Search Type -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-300 font-semibold mb-1">حالة الإعلان</label>
-            <select id="cfg-status" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-              <option value="ACTIVE" selected>نشط حالياً (Active)</option>
-              <option value="INACTIVE">متوقف (Inactive)</option>
-              <option value="ALL">الكل</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-slate-300 font-semibold mb-1">نمط البحث</label>
-            <select id="cfg-search-type" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-              <option value="KEYWORD_UNORDERED" selected>كلمات مفتاحية</option>
-              <option value="KEYWORD_EXACT_PHRASE">جملة مطابقة تماماً</option>
-              <option value="PAGE">بحث بصفحة محددة</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Smart Incremental Tracking Card -->
-        <div class="p-3 bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-500/30 rounded-xl space-y-2">
-          <label class="flex items-start gap-2.5 cursor-pointer">
-            <input type="checkbox" id="cfg-incremental" class="mt-1 rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0">
-            <div>
-              <span class="block text-sm font-bold text-blue-300">🔄 الوضع التراكمي الذكي (سحب الجديد فقط)</span>
-              <span class="block text-[11px] text-slate-400 leading-relaxed mt-0.5">يتوقف السحب تلقائياً بمجرد الوصول لإعلانات تم سحبها مسبقاً لحفظ البروكسي والوقت.</span>
-            </div>
-          </label>
-          <div id="incremental-options" class="hidden pt-2 border-t border-blue-500/20 flex items-center justify-between text-[11px]">
-            <span class="text-slate-400">توقف بعد تكرار:</span>
-            <div class="flex items-center gap-1.5">
-              <input type="number" id="cfg-max-seen" value="15" min="3" max="50" class="w-14 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-center font-mono text-white">
-              <span class="text-slate-500">إعلان قديم</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Page IDs -->
-        <div>
-          <label class="block text-slate-300 font-semibold mb-1">معرّف الصفحة (Page ID) <span class="text-slate-500 font-normal">- اختياري</span></label>
-          <input type="text" id="cfg-page-ids" placeholder="مثال: 1234567890 (مفصولة بفاصلة)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-        </div>
-
-        <!-- Max Results & Delay -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-300 font-semibold mb-1">الحد الأقصى للإعلانات</label>
-            <input type="number" id="cfg-max-results" value="50" min="1" max="10000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-          </div>
-          <div>
-            <label class="block text-slate-300 font-semibold mb-1">التأخير بين الطلبات (ثوانٍ)</label>
-            <input type="number" id="cfg-delay" value="2.0" step="0.5" min="0.5" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
-          </div>
-        </div>
-
-        <!-- Filters Section -->
-        <div class="pt-2 border-t border-slate-800">
-          <label class="block text-slate-300 font-semibold mb-2">فلاتر محتوى وسائط</label>
-          <div class="grid grid-cols-2 gap-2 text-slate-300">
-            <label class="flex items-center gap-2 cursor-pointer bg-slate-950 p-2 rounded border border-slate-800 hover:border-slate-700">
-              <input type="checkbox" id="cfg-has-video" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
-              <span>فيديو فقط</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer bg-slate-950 p-2 rounded border border-slate-800 hover:border-slate-700">
-              <input type="checkbox" id="cfg-has-image" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
-              <span>صور فقط</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Proxies textarea -->
-        <div class="pt-2 border-t border-slate-800">
-          <label class="block text-slate-300 font-semibold mb-1">البروكسيات (Proxy Pool) <span class="text-slate-500 font-normal">- اختياري</span></label>
-          <textarea id="cfg-proxy" rows="2" placeholder="host:port أو host:port:user:pass (سطر لكل بروكسي)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-blue-500 transition"></textarea>
-        </div>
-      </div>
-
-      <!-- Start/Stop Action Buttons -->
-      <div class="pt-4 border-t border-slate-800 flex gap-2 mt-auto">
-        <button id="btn-start" onclick="startCollection()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          بدء السحب
-        </button>
-
-        <button id="btn-stop" onclick="stopCollection()" disabled class="bg-rose-600/20 text-rose-400 border border-rose-600/30 hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
-          </svg>
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col overflow-hidden bg-slate-950">
-
-      <!-- View Selector and Export Toolbar -->
-      <div class="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/40 flex-shrink-0">
-        <!-- View Tabs -->
-        <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-semibold">
-          <button onclick="switchTab('cards')" id="tab-btn-cards" class="px-3 py-1.5 rounded-md bg-blue-600 text-white transition">
-            🎴 شبكة البطاقات (<span id="count-tab-cards">0</span>)
+        <div class="flex items-center gap-2">
+          <button onclick="exportAdsData('csv')" class="px-3 py-1.5 text-xs font-bold border border-outline-variant/80 hover:bg-surface-container flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">download</span> تصدير CSV
           </button>
-          <button onclick="switchTab('table')" id="tab-btn-table" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
-            📊 جدول تفصيلي
-          </button>
-          <button onclick="switchTab('db')" id="tab-btn-db" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-purple-400 transition flex items-center gap-1.5">
-            🗄️ الأرشيف المحفوظ (<span id="count-tab-db">0</span>)
-          </button>
-          <button onclick="switchTab('proxies')" id="tab-btn-proxies" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-amber-400 transition flex items-center gap-1.5">
-            🔌 البروكسيات (<span id="count-tab-proxies">0</span>)
-          </button>
-          <button onclick="switchTab('raw')" id="tab-btn-raw" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
-            { } JSON خام
-          </button>
-          <button onclick="switchTab('logs')" id="tab-btn-logs" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">
-            📟 السجل المباشر
-          </button>
-        </div>
-
-        <!-- Export Buttons -->
-        <div class="flex items-center gap-2 text-xs">
-          <span class="text-slate-400 font-semibold">تصدير النتائج:</span>
-          <button onclick="exportData('json')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono transition">
+          <button onclick="exportAdsData('json')" class="px-3 py-1.5 text-xs font-bold border border-outline-variant/80 hover:bg-surface-container flex items-center gap-1">
             JSON
           </button>
-          <button onclick="exportData('csv')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono transition">
-            CSV (Excel)
-          </button>
-          <button onclick="exportData('jsonl')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono transition">
-            JSONL
-          </button>
         </div>
       </div>
 
-      <!-- Tab 1: Cards Grid -->
-      <div id="tab-cards" class="flex-1 overflow-y-auto p-6">
-        <div id="ads-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          <!-- Empty State -->
-          <div id="empty-state" class="col-span-full py-20 text-center">
-            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-              </svg>
+      <!-- Quick KPI Strip -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 px-6 pt-4">
+        <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs text-on-surface-variant font-medium">إعلانات المتاجر المفحوصة</div>
+            <div class="text-2xl font-bold font-display text-on-surface mt-1" id="kpi-total-ads">0</div>
+          </div>
+          <span class="material-symbols-outlined text-primary text-[28px]">visibility</span>
+        </div>
+        <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs text-on-surface-variant font-medium">منتجات رابحة (+3 أيام)</div>
+            <div class="text-2xl font-bold font-display text-primary mt-1" id="kpi-winning-ads">0</div>
+          </div>
+          <span class="material-symbols-outlined text-primary text-[28px]">verified</span>
+        </div>
+        <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs text-on-surface-variant font-medium">المتاجر النشطة المرصودة</div>
+            <div class="text-2xl font-bold font-display text-secondary mt-1" id="kpi-active-stores">0</div>
+          </div>
+          <span class="material-symbols-outlined text-secondary text-[28px]">storefront</span>
+        </div>
+        <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 flex justify-between items-center shadow-sm">
+          <div>
+            <div class="text-xs text-on-surface-variant font-medium">معدل استقرار COD</div>
+            <div class="text-2xl font-bold font-display text-tertiary mt-1">84.2%</div>
+          </div>
+          <span class="material-symbols-outlined text-tertiary text-[28px]">payments</span>
+        </div>
+      </div>
+
+      <!-- Filters & Search Toolbar -->
+      <div class="px-6 pt-4">
+        <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 shadow-sm flex flex-col gap-3">
+          <!-- Presets -->
+          <div class="flex items-center gap-2 flex-wrap text-xs">
+            <span class="font-bold text-on-surface-variant">تصفية سريعة:</span>
+            <button onclick="setDiscoveryFilter('ALL')" id="filter-btn-all" class="px-3 py-1 font-bold bg-primary text-on-primary border border-primary">
+              الكل
+            </button>
+            <button onclick="setDiscoveryFilter('WINNING')" id="filter-btn-winning" class="px-3 py-1 font-bold bg-surface-container-low border border-outline-variant/60 text-on-surface hover:border-tertiary">
+              🔥 منتجات رابحة (+3 أيام نشاط)
+            </button>
+            <button onclick="setDiscoveryFilter('WEEK_PLUS')" id="filter-btn-week" class="px-3 py-1 font-bold bg-surface-container-low border border-outline-variant/60 text-on-surface hover:border-primary">
+              💎 حملات مستمرة (+7 أيام)
+            </button>
+            <button onclick="setDiscoveryFilter('TODAY')" id="filter-btn-today" class="px-3 py-1 font-bold bg-surface-container-low border border-outline-variant/60 text-on-surface hover:border-secondary">
+              ⚡ أُطلقت حديثاً (اليوم)
+            </button>
+            <button onclick="setDiscoveryFilter('VIDEO')" id="filter-btn-video" class="px-3 py-1 font-bold bg-surface-container-low border border-outline-variant/60 text-on-surface flex items-center gap-1">
+              <span class="material-symbols-outlined text-[15px]">videocam</span> فيديو فقط
+            </button>
+          </div>
+
+          <!-- Active Target / Query & Date Range Control Bar -->
+          <div class="p-3 bg-surface-container-low border border-outline-variant/40 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2 flex-1 min-w-[280px]">
+              <span class="font-bold text-on-surface whitespace-nowrap">🔎 كلمة السحب:</span>
+              <input type="text" id="cfg-custom-query" placeholder="اكتب كلمة معينة (أو اترك فارغاً لسحب كل إعلانات الجزائر)..." class="flex-1 bg-surface-container-lowest border border-outline-variant/80 px-3 py-1.5 font-bold text-on-surface focus:outline-none focus:border-primary">
             </div>
-            <h3 class="text-base font-bold text-slate-300">لا توجد إعلانات مسحوبة بعد</h3>
-            <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">اضبط الإعدادات على اليسار واضغط على "بدء السحب" لرؤية الإعلانات تتدفق هنا بشكل مباشر.</p>
+
+            <!-- Date Range Controls -->
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-on-surface">📅 تاريخ الإطلاق:</span>
+              <div class="flex items-center gap-1">
+                <span class="text-on-surface-variant text-[11px]">من:</span>
+                <input type="date" id="cfg-start-date-filter" class="bg-surface-container-lowest border border-outline-variant/80 px-2 py-1 text-xs">
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-on-surface-variant text-[11px]">إلى:</span>
+                <input type="date" id="cfg-end-date-filter" class="bg-surface-container-lowest border border-outline-variant/80 px-2 py-1 text-xs">
+              </div>
+              <button onclick="applyScrapeParamsAndSync()" class="bg-primary text-on-primary font-bold px-3 py-1.5 hover:bg-primary-container transition flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px]">play_arrow</span>
+                <span>بدء السحب بهذا التخصيص</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Controls row -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2 border-t border-outline-variant/20 text-xs">
+            <div class="md:col-span-5 relative flex items-center">
+              <span class="material-symbols-outlined absolute right-3 text-outline-variant text-[18px]">search</span>
+              <input type="text" id="discovery-search-input" oninput="renderDiscoveryCards()" placeholder="بحث سريع في البطاقات المعروضة بالمتصفح..." class="w-full bg-surface-container-lowest border border-outline-variant/80 pr-9 pl-3 py-2 text-on-surface focus:outline-none focus:border-primary">
+            </div>
+            <div class="md:col-span-3">
+              <select id="discovery-platform-select" onchange="renderDiscoveryCards()" class="w-full bg-surface-container-lowest border border-outline-variant/80 px-3 py-2 text-on-surface focus:outline-none focus:border-primary">
+                <option value="ALL">المنصة: جميع منصات المتاجر</option>
+                <option value="YouCan Shop">YouCan Shop (.youcan.shop)</option>
+                <option value="Shopify">Shopify</option>
+                <option value="Algerian (.dz)">نطاقات جزائرية (.dz)</option>
+                <option value="Custom Domain">دومين مخصص (.com / .shop)</option>
+              </select>
+            </div>
+            <div class="md:col-span-4">
+              <select id="discovery-sort-select" onchange="renderDiscoveryCards()" class="w-full bg-surface-container-lowest border border-outline-variant/80 px-3 py-2 text-on-surface focus:outline-none focus:border-primary font-bold">
+                <option value="LONGEST">الأطول نشاطاً في السوق (المنتجات الرابحة أولاً)</option>
+                <option value="NEWEST">الأحدث إطلاقاً في الجزائر</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Tab 2: Table View -->
-      <div id="tab-table" class="flex-1 overflow-auto p-6 hidden">
-        <div class="rounded-xl border border-slate-800 overflow-hidden bg-slate-900/60">
-          <table class="w-full text-right text-xs">
-            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-semibold">
-              <tr>
-                <th class="p-3">#</th>
-                <th class="p-3">الصفحة</th>
-                <th class="p-3">النص الإعلاني</th>
-                <th class="p-3">المنصات</th>
-                <th class="p-3">المشاهدات</th>
-                <th class="p-3">الإنفاق</th>
-                <th class="p-3">الحالة</th>
-                <th class="p-3">الرابط</th>
+      <!-- Live Cards Grid (STRICTLY NO SOCIAL PLATFORM BADGES) -->
+      <div class="p-6">
+        <div id="discovery-ads-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="col-span-full py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant/60 p-6">
+            جاري تحميل أحدث إعلانات المتاجر الجزائرية المفهرسة...
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 2: STORES DIRECTORY (دليل ومتاجر الجزائر) -->
+    <!-- ========================================================================= -->
+    <section id="view-stores" class="w-full flex-col hidden">
+      <div class="w-full px-6 py-4 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-on-surface">دليل المتاجر والدومينات النشطة في الجزائر</h1>
+          <p class="text-xs text-on-surface-variant mt-1">حصر لجميع متاجر YouCan و Shopify والمتاجر المستقلة النشطة تجارياً بحملات إعلانية فعالة.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="text" id="stores-search-input" oninput="loadStoresDirectory()" placeholder="بحث بالدومين أو اسم المتجر..." class="px-3 py-1.5 border border-outline-variant/80 text-xs w-64 bg-surface-container-lowest focus:outline-none focus:border-primary">
+          <select id="stores-platform-filter" onchange="loadStoresDirectory()" class="px-3 py-1.5 border border-outline-variant/80 text-xs bg-surface-container-lowest focus:outline-none focus:border-primary font-semibold">
+            <option value="all">كل المنصات</option>
+            <option value="youcan">YouCan Shop</option>
+            <option value="shopify">Shopify</option>
+            <option value="algerian">دومينات .dz</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="p-6">
+        <div class="bg-surface-container-lowest border border-outline-variant/40 shadow-sm overflow-x-auto">
+          <table class="w-full text-right text-xs border-collapse">
+            <thead>
+              <tr class="bg-surface-container text-on-surface font-bold uppercase tracking-wider border-b border-outline-variant/40">
+                <th class="p-3">المتجر والصفحة المعتمدة</th>
+                <th class="p-3">رابط الدومين الفعال</th>
+                <th class="p-3">المنصة</th>
+                <th class="p-3">إعلانات نشطة</th>
+                <th class="p-3">تاريخ أول رصد</th>
+                <th class="p-3 text-center">الإجراءات والرادار</th>
               </tr>
             </thead>
-            <tbody id="ads-table-body" class="divide-y divide-slate-800/60">
+            <tbody id="stores-table-body" class="divide-y divide-outline-variant/20 font-body text-on-surface">
               <!-- Dynamically populated -->
             </tbody>
           </table>
         </div>
       </div>
+    </section>
 
-      <!-- Tab 3: Raw JSON -->
-      <div id="tab-raw" class="flex-1 overflow-auto p-6 hidden">
-        <pre id="raw-json-viewer" class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 leading-relaxed overflow-x-auto">[]</pre>
-      </div>
-
-      <!-- Tab 4: Live Logs -->
-      <div id="tab-logs" class="flex-1 overflow-auto p-6 hidden font-mono text-xs">
-        <div id="logs-container" class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1 text-slate-400 min-h-full">
-          <div class="text-blue-400">> تم تشغيل نظام الواجهة. بانتظار بدء مهام السحب...</div>
+    <!-- ========================================================================= -->
+    <!-- VIEW 3: COMPETITOR WATCHLIST (رادار مراقبة المنافسين) -->
+    <!-- ========================================================================= -->
+    <section id="view-watchlist" class="w-full flex-col hidden">
+      <div class="w-full px-6 py-4 bg-surface-container-lowest border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-on-surface">رادار مراقبة المنافسين والتنبيهات المباشرة</h1>
+          <p class="text-xs text-on-surface-variant mt-1">تتبع صفحات المنافسين وحملاتهم الإعلانية في الجزائر مع التنبيه الفوري عند إطلاق منتج جديد أو إيقاف حملة.</p>
         </div>
+        <button onclick="openAddWatchlistModal()" class="flex items-center gap-1 bg-primary text-on-primary px-4 py-2 text-xs font-bold hover:bg-primary-container transition shadow-sm">
+          <span class="material-symbols-outlined text-[18px]">add_circle</span>
+          <span>+ إضافة منافس جديد للرادار</span>
+        </button>
       </div>
 
-      <!-- Tab 5: Database Archive (PostgreSQL) -->
-      <div id="tab-db" class="flex-1 overflow-y-auto p-6 hidden">
-        <div class="space-y-4">
-          <!-- DB Header Toolbar -->
-          <div class="flex items-center justify-between bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-            <div class="flex items-center gap-4">
-              <input type="text" id="db-search-input" placeholder="بحث في الإعلانات المحفوظة..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 w-64">
-              <button onclick="loadDatabaseAds()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition">بحث</button>
-              <button onclick="refreshDbStats()" class="text-slate-400 hover:text-white text-xs">↻ تحديث</button>
-            </div>
-            <div class="flex items-center gap-3">
-              <button onclick="clearDbAds()" class="text-xs bg-rose-600/20 text-rose-300 border border-rose-600/30 hover:bg-rose-600 hover:text-white px-3 py-1.5 rounded-lg transition font-semibold">
-                🗑️ مسح كل الإعلانات
-              </button>
-              <button onclick="triggerFactoryReset()" class="text-xs bg-red-950 text-red-400 border border-red-800 hover:bg-red-700 hover:text-white px-3 py-1.5 rounded-lg transition font-bold">
-                ⚠️ إعادة تهيئة شاملة (Reset DB)
-              </button>
-            </div>
-          </div>
-
-          <!-- Stored Ads Grid -->
-          <div id="db-ads-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            <div class="col-span-full py-12 text-center text-slate-500 text-xs">جاري تحميل بيانات الأرشيف...</div>
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Watchlist Cards (8 Cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-4" id="watchlist-cards-container">
+          <div class="bg-surface-container-lowest p-6 border border-outline-variant/40 text-center text-xs text-on-surface-variant">
+            جاري تحميل قائمة المنافسين المتابعين...
           </div>
         </div>
-      </div>
 
-      <!-- Tab 6: Proxies Management -->
-      <div id="tab-proxies" class="flex-1 overflow-y-auto p-6 hidden">
-        <div class="max-w-4xl mx-auto space-y-6">
-          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="text-sm font-bold text-white">إضافة بروكسيات جديدة لقاعدة البيانات</h3>
-                <p class="text-xs text-slate-400 mt-0.5">ستقوم الأداة باستخدام هذه البروكسيات تلقائياً في كل عمليات السحب المستمرة 24/7</p>
+        <!-- Telemetry Sidebar (4 Cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+          <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 shadow-sm flex flex-col gap-3">
+            <h3 class="font-bold text-sm text-on-surface flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
+              <span>سجل التنبيهات الميدانية الأخيرة</span>
+            </h3>
+            <div class="flex flex-col gap-2 text-xs text-on-surface-variant" id="live-alerts-list">
+              <div class="p-2 bg-surface-container-low border border-outline-variant/20">
+                <span class="text-primary font-bold">🟢 مراقبة حية:</span> الرادار يتزامن تلقائياً مع خوادم فيسبوك بالجزائر.
               </div>
-              <button onclick="saveNewProxies()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg transition">
-                + حفظ البروكسيات
-              </button>
             </div>
-            <textarea id="db-proxy-input" rows="3" placeholder="host:port أو host:port:user:pass (ضع بروكسي في كل سطر)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-amber-500"></textarea>
           </div>
 
-          <!-- Proxies List Table -->
-          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-300">قائمة البروكسيات المسجلة في السيرفر</span>
-              <button onclick="clearAllProxies()" class="text-xs text-rose-400 hover:underline font-semibold">حذف جميع البروكسيات</button>
-            </div>
-            <table class="w-full text-right text-xs">
-              <thead class="bg-slate-950 border-b border-slate-800 text-slate-400">
-                <tr>
-                  <th class="p-3">#</th>
-                  <th class="p-3">البروكسي</th>
-                  <th class="p-3">الحالة</th>
-                  <th class="p-3">الأخطاء</th>
-                  <th class="p-3">آخر استخدام</th>
-                  <th class="p-3">إجراء</th>
-                </tr>
-              </thead>
-              <tbody id="db-proxies-table-body" class="divide-y divide-slate-800/60 font-mono">
-                <!-- Dynamically loaded -->
-              </tbody>
-            </table>
+          <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 shadow-sm flex flex-col gap-2 text-xs text-on-surface-variant">
+            <div class="font-bold text-on-surface">مؤشر تأكيد توصيل COD الجزائري:</div>
+            <div>[16] العاصمة والوسط: <strong class="text-primary font-mono">88%</strong></div>
+            <div>[31] وهران والولايات الغربية: <strong class="text-primary font-mono">82%</strong></div>
+            <div>[25] قسنطينة وعنابة والشرق: <strong class="text-secondary font-mono">79%</strong></div>
+            <div>[30] ورقلة والجنوب الكبير: <strong class="text-tertiary font-mono">66%</strong></div>
           </div>
         </div>
       </div>
+    </section>
 
-    </main>
-  </div>
-
-  <!-- (Clean layout, brand archive removed) -->
-
-  <!-- Page Search Modal -->
-  <div id="page-search-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
-        <h3 class="font-bold text-sm text-white">بحث عن صفحات فيسبوك واستخراج معرفاتها</h3>
-        <button onclick="closePageModal()" class="text-slate-400 hover:text-white">&times;</button>
+    <!-- ========================================================================= -->
+    <!-- VIEW 4: AUTO-SYNC & SCRAPING ENGINE (محرك السحب والجدولة) -->
+    <!-- ========================================================================= -->
+    <section id="view-engine" class="w-full flex-col hidden">
+      <div class="w-full px-6 py-4 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-on-surface">محرك السحب التلقائي وجدولة الفهرسة</h1>
+          <p class="text-xs text-on-surface-variant mt-1">إدارة عمليات السحب الشامل لجميع إعلانات الجزائر، والبروكسيات، واستبعاد غير المتاجر.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="startScrapeEngine()" id="btn-engine-start" class="bg-primary text-on-primary px-4 py-2 text-xs font-bold hover:bg-primary-container flex items-center gap-1 shadow-sm">
+            <span class="material-symbols-outlined text-[18px]">bolt</span>
+            <span>بدء السحب الشامل الفوري</span>
+          </button>
+          <button onclick="stopScrapeEngine()" id="btn-engine-stop" disabled class="bg-error text-white px-4 py-2 text-xs font-bold disabled:opacity-40 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[18px]">stop</span>
+            <span>إيقاف</span>
+          </button>
+        </div>
       </div>
-      <div class="p-5 space-y-4">
-        <div class="flex gap-2">
-          <input type="text" id="modal-page-query" placeholder="اكتب اسم الصفحة (مثلاً Nike, Amazon)..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
-          <button onclick="performPageSearch()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition">بحث</button>
+
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Settings (8 Cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+          <!-- Filters Card -->
+          <div class="bg-surface-container-lowest p-5 border border-outline-variant/40 shadow-sm flex flex-col gap-4">
+            <h2 class="text-sm font-bold text-on-surface border-b border-outline-variant/20 pb-2">فلترة النطاقات والمعايير أثناء السحب (Engine Filters)</h2>
+            <div class="space-y-3 text-xs">
+              <label class="flex items-center justify-between p-3 bg-surface border border-outline-variant/30 cursor-pointer">
+                <div>
+                  <div class="font-bold text-on-surface">✅ حصر المتاجر الإلكترونية فقط (استبعاد الواتساب والمسنجر)</div>
+                  <div class="text-[11px] text-on-surface-variant">إسقاط أي إعلان لا يحتوي على دومين متجر مستقل أو YouCan / Shopify لتنقية المؤشر بنسبة 100%.</div>
+                </div>
+                <input type="checkbox" id="cfg-engine-stores-only" checked class="accent-primary h-4 w-4">
+              </label>
+
+              <label class="flex items-center justify-between p-3 bg-surface border border-outline-variant/30 cursor-pointer">
+                <div>
+                  <div class="font-bold text-on-surface">🔄 السحب التراكمي الذكي (سحب الجديد فقط)</div>
+                  <div class="text-[11px] text-on-surface-variant">التوقف الآلي فور مواجهة إعلانات تم سحبها مسبقاً لحفظ الموارد والبروكسيات.</div>
+                </div>
+                <input type="checkbox" id="cfg-engine-incremental" class="accent-primary h-4 w-4">
+              </label>
+            </div>
+          </div>
+
+          <!-- Proxy Pool -->
+          <div class="bg-surface-container-lowest p-5 border border-outline-variant/40 shadow-sm flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <h2 class="text-sm font-bold text-on-surface">شـبكة البروكسيات (Proxy Pool)</h2>
+              <button onclick="saveProxies()" class="bg-secondary text-on-secondary px-3 py-1 text-xs font-bold hover:bg-secondary-container">حفظ البروكسيات</button>
+            </div>
+            <textarea id="engine-proxy-input" rows="3" placeholder="host:port أو host:port:user:pass (ضع بروكسي في كل سطر)" class="w-full bg-surface-container-low border border-outline-variant/60 p-3 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"></textarea>
+            <div class="flex justify-between items-center text-xs text-on-surface-variant">
+              <span id="engine-proxy-count">0 بروكسي نشط مسجل</span>
+              <button onclick="clearProxies()" class="text-error hover:underline">مسح جميع البروكسيات</button>
+            </div>
+          </div>
+
+          <!-- System Logs -->
+          <div class="bg-surface-container-lowest p-5 border border-outline-variant/40 shadow-sm flex flex-col gap-2">
+            <h2 class="text-sm font-bold text-on-surface">سجلات السحب اللحظية (Console Output)</h2>
+            <div id="engine-logs-box" class="h-48 overflow-y-auto bg-slate-900 text-slate-300 p-3 text-xs font-mono space-y-1">
+              <div>> محرك الفهرسة التكتيكي V4.8 جاهز.</div>
+            </div>
+          </div>
         </div>
-        <div id="modal-page-results" class="max-h-60 overflow-y-auto space-y-2 text-xs">
-          <!-- Results populated here -->
-          <div class="text-slate-500 text-center py-6">اكتب اسم صفحة واضغط على بحث.</div>
+
+        <!-- Telemetry & Danger Zone (4 Cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-4 text-xs">
+          <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 shadow-sm space-y-3">
+            <h3 class="font-bold text-sm text-on-surface">حالة المحرك</h3>
+            <div class="flex justify-between py-1 border-b border-outline-variant/20">
+              <span class="text-on-surface-variant">الحالة:</span>
+              <span id="engine-status-text" class="font-bold text-primary">جاهز</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/20">
+              <span class="text-on-surface-variant">الإعلانات المسحوبة بالجلسة:</span>
+              <span id="engine-ads-session" class="font-bold font-mono">0</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/20">
+              <span class="text-on-surface-variant">الصفحات المفحوصة:</span>
+              <span id="engine-pages-session" class="font-bold font-mono">0</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/20">
+              <span class="text-on-surface-variant">الوقت المنقضي:</span>
+              <span id="engine-time-session" class="font-bold font-mono">00:00</span>
+            </div>
+          </div>
+
+          <div class="bg-surface-container-lowest p-4 border border-error/30 shadow-sm space-y-2">
+            <h3 class="font-bold text-sm text-error">إجراءات قاعدة البيانات</h3>
+            <p class="text-[11px] text-on-surface-variant">إعادة ضبط شاملة أو مسح جميع الإعلانات المؤرشفة.</p>
+            <button onclick="clearAllAds()" class="w-full py-1.5 border border-error text-error hover:bg-error hover:text-white font-bold transition">
+              مسح جميع الإعلانات المخزنة
+            </button>
+            <button onclick="factoryReset()" class="w-full py-1.5 bg-error text-white font-bold hover:bg-red-700 transition">
+              إعادة ضبط المصنع (Wipe DB)
+            </button>
+          </div>
         </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Add Watchlist Modal -->
+  <div id="modal-add-watchlist" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-surface-container-lowest border-2 border-on-surface w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-outline-variant/40 pb-2">
+        <h3 class="text-base font-bold text-on-surface flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-primary">radar</span>
+          <span>إضافة متجر / منافس للرادار</span>
+        </h3>
+        <button onclick="closeAddWatchlistModal()" class="text-on-surface-variant hover:text-on-surface font-bold">✕</button>
+      </div>
+      <p class="text-xs text-on-surface-variant leading-relaxed">
+        أدخل رابط صفحة فيسبوك أو دومين المتجر في الجزائر (YouCan / Shopify / .dz). سيقوم النظام بمراقبة نشاط إعلاناته تلقائياً.
+      </p>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-on-surface mb-1">الرابط أو المعرّف:</label>
+          <input type="text" id="modal-watchlist-target" placeholder="مثال: store.youcan.shop أو facebook.com/pagename" class="w-full bg-surface-container-low border border-outline-variant/80 p-2 font-mono text-on-surface focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="block font-bold text-on-surface mb-1">اسم المتجر / المنافس (اختياري):</label>
+          <input type="text" id="modal-watchlist-name" placeholder="مثال: Beauty Glow DZ" class="w-full bg-surface-container-low border border-outline-variant/80 p-2 text-on-surface focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeAddWatchlistModal()" class="px-4 py-2 border border-outline-variant text-xs font-bold">إلغاء</button>
+        <button onclick="submitAddWatchlist()" class="px-4 py-2 bg-primary text-on-primary text-xs font-bold hover:bg-primary-container">بدء الرصد الفوري</button>
       </div>
     </div>
   </div>
 
-  <!-- Application Logic -->
+  <!-- Footer -->
+  <footer class="w-full bg-surface-container-lowest border-t border-outline-variant/30 py-4 px-6 mt-auto">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
+      <div class="flex items-center gap-2">
+        <strong class="text-on-surface font-bold">DZ-AdSpy</strong>
+        <span class="text-outline-variant">|</span>
+        <span>منصة استخبارات تجارة الدفع عند الاستلام في الجزائر (58 ولاية)</span>
+      </div>
+      <div class="font-mono text-[11px]">
+        تغطية تلمسان إلى عنابة • © 2025 DZ-AdSpy. كافة الحقوق محفوظة.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic Scripts -->
   <script>
-    let adsData = [];
-    let isRunning = false;
-    let eventSource = null;
-    let timerInterval = null;
-    let startTime = 0;
+    let loadedAds = [];
+    let currentFilter = 'ALL';
+    let sseSource = null;
 
-    // Connect to Server-Sent Events (SSE) stream
-    function initEventStream() {
-      if (eventSource) return;
-      eventSource = new EventSource('/api/stream');
-
-      eventSource.onmessage = function(e) {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'ping') return;
-
-        logEvent(msg);
-
-        if (msg.type === 'ad') {
-          addAdCard(msg.data);
-        } else if (msg.type === 'started') {
-          setRunningState(true);
-        } else if (msg.type === 'finished') {
-          setRunningState(false);
-        } else if (msg.type === 'error') {
-          addLog(`[خطأ] ${msg.data.context}`, 'text-rose-400');
-        } else if (msg.type === 'rate_limited') {
-          addLog(`[تنبيه معدل الطلبات] يتم الانتظار ${msg.data.wait_seconds} ثانية...`, 'text-amber-400');
-        }
-      };
-
-      eventSource.onerror = function() {
-        console.warn('SSE connection interrupted, retrying...');
-      };
-    }
-
-    // Toggle incremental options visibility
-    document.getElementById('cfg-incremental').addEventListener('change', function() {
-      const opts = document.getElementById('incremental-options');
-      if (this.checked) {
-        opts.classList.remove('hidden');
-      } else {
-        opts.classList.add('hidden');
-      }
+    document.addEventListener("DOMContentLoaded", () => {
+      connectSSE();
+      loadDiscoveryAds();
+      refreshTelemetryStats();
+      setInterval(refreshTelemetryStats, 5000);
     });
 
-    function startCollection() {
-      const isIncremental = document.getElementById('cfg-incremental').checked;
-      const config = {
-        query: document.getElementById('cfg-query').value,
-        country: document.getElementById('cfg-country').value,
-        ad_type: document.getElementById('cfg-ad-type').value,
-        status: document.getElementById('cfg-status').value,
-        search_type: document.getElementById('cfg-search-type').value,
-        page_ids: document.getElementById('cfg-page-ids').value,
-        max_results: document.getElementById('cfg-max-results').value,
-        delay: document.getElementById('cfg-delay').value,
-        has_video: document.getElementById('cfg-has-video').checked ? true : null,
-        has_image: document.getElementById('cfg-has-image').checked ? true : null,
-        proxy: document.getElementById('cfg-proxy').value,
-        incremental: isIncremental,
-        max_consecutive_seen: isIncremental ? document.getElementById('cfg-max-seen').value : null,
+    function switchView(viewName) {
+      const views = ['discovery', 'stores', 'watchlist', 'engine'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const btn = document.getElementById(`nav-btn-${v}`);
+        if (el) el.classList.toggle('hidden', v !== viewName);
+        if (btn) {
+          if (v === viewName) {
+            btn.className = "px-4 py-2 font-bold bg-primary text-on-primary transition-all";
+          } else {
+            btn.className = "px-4 py-2 font-bold text-on-surface-variant hover:text-on-surface transition-all";
+          }
+        }
+      });
+
+      if (viewName === 'stores') loadStoresDirectory();
+      if (viewName === 'watchlist') loadWatchlist();
+      if (viewName === 'engine') loadEngineData();
+    }
+
+    function connectSSE() {
+      if (sseSource) sseSource.close();
+      sseSource = new EventSource("/api/stream");
+
+      sseSource.onmessage = (e) => {
+        try {
+          const item = JSON.parse(e.data);
+          if (item.type === "ping") return;
+
+          if (item.type === "ad") {
+            const ad = item.data;
+            if (ad.store_domain) {
+              loadedAds.unshift(ad);
+              renderDiscoveryCards();
+            }
+          } else if (item.type === "log") {
+            appendLog(item.data.text);
+          } else if (item.type === "started") {
+            setEngineState(true);
+            appendLog("بدأ محرك السحب والتحديث التلقائي...");
+          } else if (item.type === "finished") {
+            setEngineState(false);
+            appendLog(`اكتملت الدورة! تم سحب ${item.data.total_collected} إعلان.`);
+            refreshTelemetryStats();
+          }
+        } catch (err) {}
       };
 
-      // Reset local store
-      adsData = [];
-      document.getElementById('ads-grid').innerHTML = '';
-      document.getElementById('ads-table-body').innerHTML = '';
-      document.getElementById('raw-json-viewer').textContent = '[]';
-      document.getElementById('stat-ads').textContent = '0';
-      document.getElementById('count-tab-cards').textContent = '0';
+      sseSource.onerror = () => setTimeout(connectSSE, 4000);
+    }
 
-      fetch('/api/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-          alert('خطأ: ' + data.error);
-        } else {
-          setRunningState(true);
-          initEventStream();
+    async function refreshTelemetryStats() {
+      try {
+        const res = await fetch("/api/db/stats");
+        const data = await res.json();
+        const adsCount = data.total_store_ads || 0;
+        const storesCount = data.total_stores || 0;
+
+        document.getElementById("header-ads-count").innerText = `${adsCount.toLocaleString()} إعلان متجر`;
+        document.getElementById("header-stores-count").innerText = `${storesCount.toLocaleString()} متجر نشط`;
+        document.getElementById("kpi-total-ads").innerText = adsCount.toLocaleString();
+        document.getElementById("kpi-active-stores").innerText = storesCount.toLocaleString();
+
+        const statusRes = await fetch("/api/status");
+        const status = await statusRes.json();
+        setEngineState(status.is_running);
+        
+        if (status.duration_seconds) {
+          const m = Math.floor(status.duration_seconds / 60).toString().padStart(2, '0');
+          const s = Math.floor(status.duration_seconds % 60).toString().padStart(2, '0');
+          document.getElementById("engine-time-session").innerText = `${m}:${s}`;
+          document.getElementById("engine-ads-session").innerText = status.ads_collected || 0;
+          document.getElementById("engine-pages-session").innerText = status.pages_fetched || 0;
         }
-      })
-      .catch(err => alert('تعذر الاتصال بالخادم: ' + err));
+
+        // Update Outbound IP Display
+        if (status.network && status.network.ip) {
+          const ipEl = document.getElementById("ip-address-display");
+          const badgeEl = document.getElementById("ip-type-badge");
+          const dotEl = document.getElementById("ip-indicator-dot");
+
+          if (ipEl) ipEl.innerText = status.network.ip;
+          if (badgeEl) {
+            if (status.network.is_proxy) {
+              badgeEl.innerText = "PROXY 🛡️";
+              badgeEl.className = "bg-secondary text-on-secondary px-1 py-0.2 text-[9px] font-bold";
+              if (dotEl) dotEl.className = "w-2 h-2 rounded-full bg-secondary animate-pulse";
+            } else {
+              badgeEl.innerText = "DIRECT ⚡";
+              badgeEl.className = "bg-primary/10 text-primary px-1 py-0.2 text-[9px] font-bold";
+              if (dotEl) dotEl.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+            }
+          }
+        }
+      } catch (e) {}
     }
 
-    function stopCollection() {
-      fetch('/api/stop', { method: 'POST' })
-      .then(res => res.json())
-      .then(() => {
-        addLog('تم إرسال أمر إيقاف العملية...', 'text-rose-400');
-      });
-    }
-
-    function setRunningState(running) {
-      isRunning = running;
-      document.getElementById('btn-start').disabled = running;
-      document.getElementById('btn-stop').disabled = !running;
-
-      const badge = document.getElementById('status-badge');
-      const badgeText = document.getElementById('status-text');
+    function setEngineState(running) {
+      const startBtn = document.getElementById("btn-engine-start");
+      const stopBtn = document.getElementById("btn-engine-stop");
+      const topStopBtn = document.getElementById("btn-top-stop");
+      const statusText = document.getElementById("engine-status-text");
 
       if (running) {
-        badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span><span>جاري السحب...</span>';
-        startTime = Date.now();
-        timerInterval = setInterval(updateStatsHeader, 1000);
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = false;
+        if (topStopBtn) topStopBtn.classList.remove("hidden");
+        if (statusText) {
+          statusText.innerText = "جاري السحب والمسح الميداني...";
+          statusText.className = "font-bold text-secondary animate-pulse";
+        }
       } else {
-        badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700';
-        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>مكتمل / جاهز</span>';
-        clearInterval(timerInterval);
-      }
-    }
-
-    function updateStatsHeader() {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
-      const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
-      document.getElementById('stat-time').textContent = `${mins}:${secs}`;
-
-      if (elapsed > 0 && adsData.length > 0) {
-        const speed = (adsData.length / elapsed).toFixed(1);
-        document.getElementById('stat-speed').textContent = `${speed} /ث`;
-      }
-    }
-
-    function addAdCard(ad) {
-      adsData.push(ad);
-      const count = adsData.length;
-      document.getElementById('stat-ads').textContent = count;
-      document.getElementById('count-tab-cards').textContent = count;
-
-      // Update Raw JSON tab
-      document.getElementById('raw-json-viewer').textContent = JSON.stringify(adsData, null, 2);
-
-      // Creative info
-      const creative = (ad.creatives && ad.creatives[0]) ? ad.creatives[0] : {};
-      const page = ad.page || {};
-      const pageName = page.name || 'صفحة غير معروفة';
-      const pagePic = page.profile_picture_url || 'https://via.placeholder.com/40';
-      const bodyText = creative.body || 'بدون نص';
-      const ctaText = creative.cta_text || 'عرض المزيد';
-      const linkUrl = creative.link_url || '#';
-      const mediaImg = creative.image_url || creative.thumbnail_url;
-      const mediaVid = creative.video_url || creative.video_hd_url;
-      const impressions = ad.impressions ? `${ad.impressions.lower_bound || 0} - ${ad.impressions.upper_bound || 'غير محدد'}` : 'غير متوفر';
-
-      // 1. Append Card
-      const card = document.createElement('div');
-      card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col hover:border-slate-700 transition shadow-lg';
-      card.innerHTML = `
-        <div class="p-4 border-b border-slate-800/80 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <img src="${pagePic}" class="w-10 h-10 rounded-full border border-slate-700 object-cover" onerror="this.src='https://via.placeholder.com/40'">
-            <div>
-              <div class="font-bold text-sm text-white">${escapeHtml(pageName)}</div>
-              <div class="text-[11px] text-slate-500 font-mono">ID: ${ad.id}</div>
-            </div>
-          </div>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${ad.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">
-            ${ad.is_active ? 'نشط' : 'متوقف'}
-          </span>
-        </div>
-
-        <div class="p-4 text-xs text-slate-200 line-clamp-4 leading-relaxed font-sans">
-          ${escapeHtml(bodyText)}
-        </div>
-
-        ${mediaImg ? `
-          <div class="bg-black relative aspect-video flex items-center justify-center overflow-hidden border-y border-slate-800">
-            <img src="${mediaImg}" class="w-full h-full object-cover">
-            ${mediaVid ? '<div class="absolute inset-0 bg-black/40 flex items-center justify-center"><span class="bg-blue-600 text-white rounded-full p-2">▶ فيديو</span></div>' : ''}
-          </div>
-        ` : ''}
-
-        <div class="p-4 bg-slate-950/50 mt-auto border-t border-slate-800/60 space-y-2.5 text-[11px]">
-          <div class="flex items-center justify-between text-slate-400">
-            <span>المشاهدات التقريبية:</span>
-            <span class="font-mono text-slate-200 font-semibold">${impressions}</span>
-          </div>
-
-          <div class="flex items-center justify-between">
-            <div class="flex gap-1">
-              ${(ad.publisher_platforms || []).map(p => `<span class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">${p}</span>`).join('')}
-            </div>
-            <a href="${linkUrl}" target="_blank" class="bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white px-3 py-1 rounded-lg font-bold transition text-xs">
-              ${escapeHtml(ctaText)} ↗
-            </a>
-          </div>
-
-          <!-- Engagement Check Section -->
-          <div id="engagement-box-${ad.id}" class="pt-2 border-t border-slate-800/50">
-            <button onclick="inspectEngagement('${ad.id}')" id="btn-engage-${ad.id}" class="w-full bg-slate-800 hover:bg-indigo-600/30 hover:text-indigo-300 text-slate-300 border border-slate-700/80 rounded-lg py-1.5 px-3 flex items-center justify-center gap-1.5 font-bold transition text-xs">
-              <span>🔍 فحص تفاعل البوست الأصلي</span>
-            </button>
-          </div>
-        </div>
-      `;
-      document.getElementById('ads-grid').prepend(card);
-
-      // 2. Append Table Row
-      const row = document.createElement('tr');
-      row.className = 'hover:bg-slate-800/40 text-slate-300';
-      row.innerHTML = `
-        <td class="p-3 font-mono text-slate-500">${count}</td>
-        <td class="p-3 font-semibold text-white whitespace-nowrap">${escapeHtml(pageName)}</td>
-        <td class="p-3 max-w-xs truncate">${escapeHtml(bodyText)}</td>
-        <td class="p-3 font-mono text-[10px]">${(ad.publisher_platforms || []).join(', ')}</td>
-        <td class="p-3 font-mono">${impressions}</td>
-        <td class="p-3 font-mono">${ad.spend ? ad.spend.currency + ' ' + (ad.spend.lower_bound || '') : '-'}</td>
-        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${ad.is_active ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400'}">${ad.is_active ? 'نشط' : 'متوقف'}</span></td>
-        <td class="p-3"><a href="${linkUrl}" target="_blank" class="text-blue-400 hover:underline">زيارة</a></td>
-      `;
-      document.getElementById('ads-table-body').prepend(row);
-    }
-
-    function logEvent(msg) {
-      if (msg.type === 'page_fetched') {
-        document.getElementById('stat-pages').textContent = msg.data.page_number;
-        addLog(`[صفحة جديدة] تم جلب الصفحة رقم ${msg.data.page_number} (${msg.data.ads_on_page} إعلان)`);
-      } else if (msg.type === 'finished') {
-        if (msg.data.early_exit) {
-          addLog(`[توقف ذكي] تم اكتشاف إعلانات قديمة مسجلة مسبقاً! تم إيقاف السحب تلقائياً بعد جلب ${msg.data.total_collected} إعلان جديد لتوفير الاستهلاك.`, 'text-blue-400 font-bold bg-blue-950/30 p-2 rounded');
-        } else {
-          addLog(`[اكتمال] تم سحب ${msg.data.total_collected} إعلان بنجاح في ${msg.data.duration} ثانية.`, 'text-emerald-400 font-bold');
+        if (startBtn) startBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
+        if (topStopBtn) topStopBtn.classList.add("hidden");
+        if (statusText) {
+          statusText.innerText = "جاهز";
+          statusText.className = "font-bold text-primary";
         }
       }
     }
 
-    function addLog(text, className = '') {
-      const container = document.getElementById('logs-container');
-      const time = new Date().toLocaleTimeString('ar-EG');
-      const div = document.createElement('div');
-      div.className = className || 'text-slate-400';
-      div.textContent = `[${time}] ${text}`;
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
+    async function emergencyStop() {
+      try {
+        await fetch("/api/stop", { method: "POST" });
+        setEngineState(false);
+        appendLog("تم إيقاف عملية السحب فوراً بواسطة المستخدم.");
+      } catch (e) {
+        console.error(e);
+      }
     }
 
-    function switchTab(tab) {
-      ['cards', 'table', 'db', 'proxies', 'raw', 'logs'].forEach(t => {
-        const el = document.getElementById(`tab-${t}`);
-        const btn = document.getElementById(`tab-btn-${t}`);
-        if (el) el.classList.add('hidden');
-        if (btn) btn.className = 'px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition';
+    async function applyScrapeParamsAndSync() {
+      const customQuery = document.getElementById("cfg-custom-query")?.value.trim() || "";
+      const startDate = document.getElementById("cfg-start-date-filter")?.value || null;
+      const endDate = document.getElementById("cfg-end-date-filter")?.value || null;
+
+      try {
+        setEngineState(true);
+        const res = await fetch("/api/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: customQuery,
+            start_date: startDate,
+            end_date: endDate,
+            country: "DZ",
+            stores_only: true,
+            incremental: false,
+            max_results: 1500,
+            delay: 1.5
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "تعذر بدء السحب");
+          setEngineState(false);
+        }
+      } catch (err) {
+        alert("خطأ: " + err);
+        setEngineState(false);
+      }
+    }
+
+    async function loadDiscoveryAds() {
+      try {
+        const res = await fetch("/api/db/ads?limit=90&stores_only=true");
+        const data = await res.json();
+        loadedAds = data.ads || [];
+        renderDiscoveryCards();
+      } catch (e) {}
+    }
+
+    function setDiscoveryFilter(filter) {
+      currentFilter = filter;
+      const btns = {
+        'ALL': 'filter-btn-all',
+        'WINNING': 'filter-btn-winning',
+        'WEEK_PLUS': 'filter-btn-week',
+        'TODAY': 'filter-btn-today',
+        'VIDEO': 'filter-btn-video'
+      };
+      Object.keys(btns).forEach(k => {
+        const el = document.getElementById(btns[k]);
+        if (el) {
+          if (k === filter) {
+            el.className = "px-3 py-1 font-bold bg-primary text-on-primary border border-primary";
+          } else {
+            el.className = "px-3 py-1 font-bold bg-surface-container-low border border-outline-variant/60 text-on-surface hover:border-primary";
+          }
+        }
       });
-      const activeEl = document.getElementById(`tab-${tab}`);
-      const activeBtn = document.getElementById(`tab-btn-${tab}`);
-      if (activeEl) activeEl.classList.remove('hidden');
-      if (activeBtn) activeBtn.className = 'px-3 py-1.5 rounded-md bg-blue-600 text-white transition font-bold';
-
-      if (tab === 'db') loadDatabaseAds();
-      if (tab === 'proxies') loadDatabaseProxies();
+      renderDiscoveryCards();
     }
 
-    // ── Database Operations ──────────────────────────────────────────────────
-    function refreshDbStats() {
-      fetch('/api/db/stats')
-      .then(r => r.json())
-      .then(stats => {
-        document.getElementById('stat-db-total').textContent = `${stats.total_ads} (${stats.backend})`;
-        document.getElementById('count-tab-db').textContent = stats.total_ads;
-        document.getElementById('count-tab-proxies').textContent = stats.active_proxies;
-      })
-      .catch(e => console.warn('Failed to load DB stats', e));
+    function renderDiscoveryCards() {
+      const search = (document.getElementById("discovery-search-input")?.value || "").toLowerCase().trim();
+      const platformFilter = document.getElementById("discovery-platform-select")?.value || "ALL";
+      const sort = document.getElementById("discovery-sort-select")?.value || "LONGEST";
+
+      let filtered = loadedAds.filter(ad => {
+        if (!ad.store_domain) return false;
+
+        const body = (ad.body || (ad.creatives && ad.creatives[0]?.body) || "").toLowerCase();
+        const pageName = (ad.page_name || ad.page?.name || "").toLowerCase();
+        const domain = (ad.store_domain || "").toLowerCase();
+
+        if (search && !body.includes(search) && !pageName.includes(search) && !domain.includes(search)) {
+          return false;
+        }
+
+        if (platformFilter !== "ALL" && ad.store_platform !== platformFilter) {
+          return false;
+        }
+
+        let days = 0;
+        if (ad.delivery_start_time) {
+          try {
+            days = (new Date() - new Date(ad.delivery_start_time)) / (1000 * 60 * 60 * 24);
+          } catch(e) {}
+        }
+
+        if (currentFilter === "WINNING" && days < 3) return false;
+        if (currentFilter === "WEEK_PLUS" && days < 7) return false;
+        if (currentFilter === "TODAY" && days > 1.2) return false;
+
+        if (currentFilter === "VIDEO" && !ad.video_url && !(ad.creatives && ad.creatives[0]?.video_url)) {
+          return false;
+        }
+
+        return true;
+      });
+
+      const winningCount = loadedAds.filter(a => {
+        if (!a.delivery_start_time) return false;
+        return ((new Date() - new Date(a.delivery_start_time)) / (1000 * 60 * 60 * 24)) >= 3;
+      }).length;
+      document.getElementById("kpi-winning-ads").innerText = winningCount;
+
+      if (sort === "LONGEST") {
+        filtered.sort((a, b) => new Date(a.delivery_start_time || 0) - new Date(b.delivery_start_time || 0));
+      } else {
+        filtered.sort((a, b) => new Date(b.delivery_start_time || 0) - new Date(a.delivery_start_time || 0));
+      }
+
+      const grid = document.getElementById("discovery-ads-grid");
+      if (!grid) return;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-on-surface-variant text-xs border border-dashed border-outline-variant/60 p-6">
+            لا توجد إعلانات مطابقة لمعايير البحث الحالية. اضغط "تحديث السحب الآن" لجلب إعلانات جديدة.
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(ad => createDiscoveryCardHTML(ad)).join("");
     }
 
-    function loadDatabaseAds() {
-      const q = document.getElementById('db-search-input').value;
-      const grid = document.getElementById('db-ads-grid');
-      grid.innerHTML = '<div class="col-span-full py-8 text-center text-purple-400 text-xs">جاري جلب الإعلانات من قاعدة البيانات...</div>';
+    function createDiscoveryCardHTML(ad) {
+      const pageName = ad.page_name || ad.page?.name || "متجر جزائري";
+      const profilePic = ad.page_profile_pic || ad.page?.profile_picture_url || "";
+      const body = ad.body || (ad.creatives && ad.creatives[0]?.body) || "";
+      const videoUrl = ad.video_url || (ad.creatives && (ad.creatives[0]?.video_url || ad.creatives[0]?.video_hd_url)) || "";
+      const imageUrl = ad.image_url || (ad.creatives && ad.creatives[0]?.image_url) || "";
+      const linkUrl = ad.link_url || (ad.creatives && ad.creatives[0]?.link_url) || "";
+      const storeDomain = ad.store_domain || "متجر إلكتروني";
+      const storePlatform = ad.store_platform || "Custom Store";
+      const adId = ad.id || "";
 
-      fetch(`/api/db/ads?query=${encodeURIComponent(q)}&limit=60`)
-      .then(r => r.json())
-      .then(data => {
-        grid.innerHTML = '';
-        if (!data.ads || data.ads.length === 0) {
-          grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-500 text-xs">لا توجد إعلانات مخزنة في الأرشيف حالياً.</div>';
+      let days = 0;
+      let activeBadge = "";
+      let exactLaunchDate = "";
+
+      if (ad.delivery_start_time) {
+        try {
+          const rawDate = new Date(ad.delivery_start_time);
+          const y = rawDate.getFullYear();
+          const m = String(rawDate.getMonth() + 1).padStart(2, '0');
+          const d = String(rawDate.getDate()).padStart(2, '0');
+          const hh = String(rawDate.getHours()).padStart(2, '0');
+          const mm = String(rawDate.getMinutes()).padStart(2, '0');
+          exactLaunchDate = `${y}-${m}-${d} ${hh}:${mm}`;
+
+          days = Math.floor((new Date() - rawDate) / (1000 * 60 * 60 * 24));
+
+          if (days >= 7) {
+            activeBadge = `<span class="bg-primary/10 text-primary border border-primary px-2 py-0.5 text-[10px] font-bold font-mono" title="أُطلق في: ${exactLaunchDate}">💎 ${days} يوم (${exactLaunchDate.split(' ')[0]})</span>`;
+          } else if (days >= 3) {
+            activeBadge = `<span class="bg-tertiary-fixed text-tertiary border border-tertiary px-2 py-0.5 text-[10px] font-bold font-mono" title="أُطلق في: ${exactLaunchDate}">🔥 ${days} أيام (${exactLaunchDate.split(' ')[0]})</span>`;
+          } else {
+            activeBadge = `<span class="bg-secondary-fixed text-secondary border border-secondary/30 px-2 py-0.5 text-[10px] font-bold font-mono">📅 ${exactLaunchDate}</span>`;
+          }
+        } catch (e) {
+          exactLaunchDate = String(ad.delivery_start_time).split("T")[0];
+          activeBadge = `<span class="bg-surface-container px-2 py-0.5 text-[10px] font-bold font-mono">📅 ${exactLaunchDate}</span>`;
+        }
+      }
+
+      let mediaHtml = "";
+      if (videoUrl) {
+        mediaHtml = `
+          <div class="relative w-full aspect-[4/3] bg-black overflow-hidden border-b border-outline-variant/40">
+            <video src="${videoUrl}" controls preload="metadata" class="w-full h-full object-contain"></video>
+          </div>`;
+      } else if (imageUrl) {
+        mediaHtml = `
+          <div class="relative w-full aspect-[4/3] bg-surface-container overflow-hidden border-b border-outline-variant/40">
+            <img src="${imageUrl}" loading="lazy" class="w-full h-full object-cover">
+          </div>`;
+      }
+
+      return `
+        <div class="bg-surface-container-lowest border border-outline-variant/60 shadow-sm flex flex-col justify-between hover:border-primary transition-colors">
+          <div>
+            <div class="p-3 border-b border-outline-variant/30 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                ${profilePic ? `<img src="${profilePic}" class="w-7 h-7 object-cover border border-outline-variant/50">` : `<div class="w-7 h-7 bg-surface-container font-bold text-xs flex items-center justify-center">${pageName.charAt(0)}</div>`}
+                <div>
+                  <div class="font-bold text-xs text-on-surface leading-tight">${escapeHtml(pageName)}</div>
+                  <div class="text-[10px] text-outline font-mono">ID: #${adId}</div>
+                </div>
+              </div>
+              ${activeBadge}
+            </div>
+
+            ${mediaHtml}
+
+            <div class="p-3 flex flex-col gap-2">
+              <p class="text-xs text-on-surface line-clamp-3 leading-relaxed hover:line-clamp-none transition cursor-pointer" title="انقر لتوسيع النص">
+                ${body ? escapeHtml(body) : '<span class="text-outline">بدون نص إعلاني</span>'}
+              </p>
+
+              <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 text-xs">
+                <a href="${linkUrl || '#'}" target="_blank" class="text-secondary hover:underline font-mono font-bold flex items-center gap-1" dir="ltr">
+                  <span class="material-symbols-outlined text-[13px]">link</span>
+                  <span>${escapeHtml(storeDomain)}</span>
+                </a>
+                <span class="bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 text-[10px] font-semibold">
+                  ${escapeHtml(storePlatform)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 border-t border-outline-variant/40 bg-surface-container-low flex flex-col gap-2">
+            ${linkUrl ? `
+              <a href="${linkUrl}" target="_blank" class="w-full bg-secondary hover:bg-secondary-container text-on-secondary text-xs font-bold py-1.5 px-3 flex items-center justify-center gap-1 transition text-center shadow-sm">
+                <span>زيارة صفحة المنتج</span>
+                <span class="material-symbols-outlined text-[14px]">north_east</span>
+              </a>
+            ` : ''}
+
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <button onclick="addStoreToWatchlist('${escapeHtml(storeDomain)}', '${escapeHtml(pageName)}')" class="bg-surface-container-lowest hover:bg-surface-container border border-outline-variant/60 text-on-surface py-1 px-2 flex items-center justify-center gap-1 font-bold">
+                <span class="material-symbols-outlined text-[14px] text-tertiary">radar</span>
+                <span>+ مراقبة المتجر</span>
+              </button>
+              <a href="https://www.facebook.com/ads/library/?id=${adId}" target="_blank" class="bg-surface-container-lowest hover:bg-surface-container border border-outline-variant/60 text-on-surface py-1 px-2 flex items-center justify-center gap-1 font-bold text-center">
+                <span>مكتبة الإعلانات ↗</span>
+              </a>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function loadStoresDirectory() {
+      const search = document.getElementById("stores-search-input")?.value || "";
+      const platform = document.getElementById("stores-platform-filter")?.value || "all";
+      const tbody = document.getElementById("stores-table-body");
+      if (!tbody) return;
+
+      tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-on-surface-variant">جاري تحميل دليل المتاجر...</td></tr>`;
+
+      try {
+        const res = await fetch(`/api/stores?search=${encodeURIComponent(search)}&platform=${encodeURIComponent(platform)}`);
+        const data = await res.json();
+        const stores = data.stores || [];
+
+        if (stores.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-on-surface-variant">لا توجد متاجر مطابقة.</td></tr>`;
           return;
         }
 
-        data.ads.forEach(ad => {
-          const card = document.createElement('div');
-          card.className = 'bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col p-4 shadow-lg text-xs space-y-2.5';
-          card.innerHTML = `
-            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-              <div class="font-bold text-white text-sm truncate">${escapeHtml(ad.page_name || 'صفحة')}</div>
-              <button onclick="deleteSingleAd('${ad.id}')" class="text-rose-400 hover:text-rose-300 text-[11px]">🗑️ حذف</button>
-            </div>
-            <div class="text-slate-300 line-clamp-3 text-[11px] leading-relaxed">${escapeHtml(ad.body || 'بدون نص')}</div>
-            ${ad.image_url ? `<img src="${ad.image_url}" class="w-full h-36 object-cover rounded-lg border border-slate-800">` : ''}
-            <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500">
-              <span>تاريخ الحفظ: ${ad.collected_at ? ad.collected_at.split('T')[0] : ''}</span>
-              ${ad.link_url ? `<a href="${ad.link_url}" target="_blank" class="text-blue-400 hover:underline">زيارة الرابط ↗</a>` : ''}
-            </div>
-          `;
-          grid.appendChild(card);
-        });
-      });
+        tbody.innerHTML = stores.map(s => `
+          <tr class="hover:bg-surface-container-low/60 transition bg-surface-container-lowest">
+            <td class="p-3">
+              <div class="font-bold text-on-surface">${escapeHtml(s.page_name || 'متجر')}</div>
+            </td>
+            <td class="p-3 font-mono font-bold text-secondary">
+              <a href="${s.sample_url || '#'}" target="_blank" class="hover:underline flex items-center gap-1" dir="ltr">
+                <span>${escapeHtml(s.store_domain)}</span>
+                <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+              </a>
+            </td>
+            <td class="p-3">
+              <span class="px-2 py-0.5 font-bold ${s.platform.includes('YouCan') ? 'bg-secondary text-on-secondary' : 'bg-primary text-on-primary'} text-[10px]">
+                ${escapeHtml(s.platform)}
+              </span>
+            </td>
+            <td class="p-3 font-bold font-display text-primary">${s.total_ads} إعلان</td>
+            <td class="p-3 font-mono text-[11px] text-on-surface-variant">${s.oldest_ad_date ? s.oldest_ad_date.split('T')[0] : '-'}</td>
+            <td class="p-3 text-center">
+              <button onclick="addStoreToWatchlist('${escapeHtml(s.store_domain)}', '${escapeHtml(s.page_name || s.store_domain)}')" class="bg-surface-container hover:bg-primary hover:text-white px-2.5 py-1 text-xs font-bold transition flex items-center gap-1 mx-auto">
+                <span class="material-symbols-outlined text-[14px]">radar</span>
+                <span>تفعيل الرصد</span>
+              </button>
+            </td>
+          </tr>
+        `).join("");
+      } catch (err) {}
     }
 
-    function deleteSingleAd(adId) {
-      if (!confirm('هل تريد حذف هذا الإعلان من الأرشيف؟')) return;
-      fetch(`/api/db/ads/${adId}`, { method: 'DELETE' })
-      .then(() => {
-        loadDatabaseAds();
-        refreshDbStats();
-      });
-    }
+    async function loadWatchlist() {
+      const container = document.getElementById("watchlist-cards-container");
+      if (!container) return;
+      container.innerHTML = `<div class="p-6 text-center text-on-surface-variant text-xs">جاري تحميل رادار المنافسين...</div>`;
 
-    function clearDbAds() {
-      if (!confirm('⚠️ هل أنت متأكد من مسح جميع الإعلانات المحفوظة في قاعدة البيانات؟')) return;
-      fetch('/api/db/ads/clear', { method: 'POST' })
-      .then(r => r.json())
-      .then(res => {
-        alert(`تم مسح ${res.deleted_count} إعلان بنجاح.`);
-        loadDatabaseAds();
-        refreshDbStats();
-      });
-    }
+      try {
+        const res = await fetch("/api/watchlist");
+        const data = await res.json();
+        const list = data.watchlist || [];
 
-    function triggerFactoryReset() {
-      if (!confirm('🚨 تحذير شديد: سيتم مسح قاعدة البيانات بالكامل وإعادة تهيئتها كأنها جديدة! هل أنت متأكد؟')) return;
-      fetch('/api/db/reset', { method: 'POST' })
-      .then(r => r.json())
-      .then(res => {
-        alert(res.message);
-        loadDatabaseAds();
-        loadDatabaseProxies();
-        refreshDbStats();
-      });
-    }
-
-    // ── Proxies Operations ───────────────────────────────────────────────────
-    function loadDatabaseProxies() {
-      const tbody = document.getElementById('db-proxies-table-body');
-      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">جاري تحميل البروكسيات...</td></tr>';
-
-      fetch('/api/db/proxies')
-      .then(r => r.json())
-      .then(data => {
-        tbody.innerHTML = '';
-        if (!data.proxies || data.proxies.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد بروكسيات مسجلة. أضف بعض البروكسيات أعلاه.</td></tr>';
+        if (list.length === 0) {
+          container.innerHTML = `
+            <div class="bg-surface-container-lowest p-8 border border-outline-variant/40 text-center space-y-2">
+              <div class="font-bold text-sm text-on-surface">لا توجد صفحات أو متاجر تحت المراقبة حالياً</div>
+              <p class="text-xs text-on-surface-variant">اضغط زر "+ إضافة منافس جديد للرادار" أو أضف متجراً من شاشة اكتشاف الإعلانات.</p>
+            </div>`;
           return;
         }
 
-        data.proxies.forEach((p, idx) => {
-          const row = document.createElement('tr');
-          row.className = 'hover:bg-slate-800/40 text-slate-300';
-          row.innerHTML = `
-            <td class="p-3 text-slate-500">${idx + 1}</td>
-            <td class="p-3 text-amber-300 font-bold">${escapeHtml(p.proxy_url)}</td>
-            <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${p.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${p.is_active ? 'نشط' : 'معطل'}</span></td>
-            <td class="p-3">${p.failures || 0}</td>
-            <td class="p-3 text-slate-500">${p.last_used ? p.last_used.split('T')[0] : 'لم يُستخدم'}</td>
-            <td class="p-3"><button onclick="deleteSingleProxy(${p.id})" class="text-rose-400 hover:text-rose-300">حذف</button></td>
-          `;
-          tbody.appendChild(row);
+        container.innerHTML = list.map(item => `
+          <div class="bg-surface-container-lowest p-4 border border-outline-variant/40 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-secondary/10 text-secondary font-bold flex items-center justify-center text-sm">
+                ${(item.name || 'M').charAt(0)}
+              </div>
+              <div>
+                <div class="font-bold text-sm text-on-surface flex items-center gap-2">
+                  <span>${escapeHtml(item.name || item.target_identifier)}</span>
+                  <span class="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 font-bold">🟢 مراقبة نشطة</span>
+                </div>
+                <div class="text-xs text-secondary font-mono mt-0.5" dir="ltr">${escapeHtml(item.store_domain || item.target_identifier)}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="inspectCompetitorAds('${escapeHtml(item.target_identifier)}')" class="bg-secondary text-on-secondary px-3 py-1.5 text-xs font-bold hover:bg-secondary-container">
+                فحص إعلاناته الآن
+              </button>
+              <button onclick="removeWatchlistItem(${item.id})" class="text-error border border-error/30 hover:bg-error hover:text-white px-2 py-1.5 text-xs font-bold transition">
+                إيقاف الرصد
+              </button>
+            </div>
+          </div>
+        `).join("");
+      } catch (err) {}
+    }
+
+    function openAddWatchlistModal() {
+      document.getElementById("modal-add-watchlist")?.classList.remove("hidden");
+    }
+    function closeAddWatchlistModal() {
+      document.getElementById("modal-add-watchlist")?.classList.add("hidden");
+    }
+
+    async function submitAddWatchlist() {
+      const target = document.getElementById("modal-watchlist-target")?.value.trim();
+      const name = document.getElementById("modal-watchlist-name")?.value.trim();
+      if (!target) return;
+
+      try {
+        const res = await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target, name })
         });
-      });
+        const data = await res.json();
+        closeAddWatchlistModal();
+        loadWatchlist();
+      } catch (e) {}
     }
 
-    function saveNewProxies() {
-      const text = document.getElementById('db-proxy-input').value.trim();
-      if (!text) {
-        alert('الرجاء إدخال بروكسي واحد على الأقل.');
-        return;
-      }
-      fetch('/api/db/proxies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proxies: text })
-      })
-      .then(r => r.json())
-      .then(res => {
-        alert(`تم حفظ ${res.added_count} بروكسي بنجاح!`);
-        document.getElementById('db-proxy-input').value = '';
-        loadDatabaseProxies();
-        refreshDbStats();
-      });
+    async function addStoreToWatchlist(domain, name) {
+      try {
+        await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: domain, name })
+        });
+        alert(`تمت إضافة ${name || domain} لرادار مراقبة المنافسين بنجاح!`);
+        refreshTelemetryStats();
+      } catch (e) {}
     }
 
-    function deleteSingleProxy(id) {
-      fetch(`/api/db/proxies/${id}`, { method: 'DELETE' })
-      .then(() => {
-        loadDatabaseProxies();
-        refreshDbStats();
-      });
+    async function removeWatchlistItem(id) {
+      if (!confirm("هل تود إيقاف مراقبة هذا المنافس؟")) return;
+      try {
+        await fetch(`/api/watchlist/${id}`, { method: "DELETE" });
+        loadWatchlist();
+        refreshTelemetryStats();
+      } catch (e) {}
     }
 
-    function clearAllProxies() {
-      if (!confirm('هل تريد مسح جميع البروكسيات؟')) return;
-      fetch('/api/db/proxies/clear', { method: 'POST' })
-      .then(() => {
-        loadDatabaseProxies();
-        refreshDbStats();
-      });
+    function inspectCompetitorAds(target) {
+      switchView('discovery');
+      document.getElementById("discovery-search-input").value = target;
+      renderDiscoveryCards();
     }
 
-    function exportData(fmt) {
-      if (adsData.length === 0) {
-        alert('لا توجد بيانات مسحوبة لتصديرها حالياً.');
-        return;
-      }
+    async function startScrapeEngine() {
+      const storesOnly = document.getElementById("cfg-engine-stores-only")?.checked ?? true;
+      const incremental = document.getElementById("cfg-engine-incremental")?.checked ?? false;
+
+      try {
+        const res = await fetch("/api/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: "",
+            country: "DZ",
+            stores_only: storesOnly,
+            incremental: incremental,
+            max_results: 1500,
+            delay: 1.5
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) alert(data.error);
+      } catch (e) {}
+    }
+
+    async function triggerQuickSync() {
+      startScrapeEngine();
+      switchView('engine');
+    }
+
+    async function stopScrapeEngine() {
+      try {
+        await fetch("/api/stop", { method: "POST" });
+      } catch (e) {}
+    }
+
+    async function saveProxies() {
+      const text = document.getElementById("engine-proxy-input")?.value || "";
+      if (!text.trim()) return;
+      try {
+        const res = await fetch("/api/db/proxies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proxies: text })
+        });
+        const data = await res.json();
+        alert(`تم تسجيل ${data.added_count || 0} بروكسي بنجاح.`);
+        document.getElementById("engine-proxy-input").value = "";
+        loadEngineData();
+      } catch (e) {}
+    }
+
+    async function clearProxies() {
+      if (!confirm("هل أنت متأكد من حذف كافة البروكسيات؟")) return;
+      try {
+        await fetch("/api/db/proxies/clear", { method: "POST" });
+        loadEngineData();
+      } catch (e) {}
+    }
+
+    async function loadEngineData() {
+      try {
+        const res = await fetch("/api/db/proxies");
+        const data = await res.json();
+        document.getElementById("engine-proxy-count").innerText = `${(data.proxies || []).length} بروكسي نشط مسجل`;
+      } catch (e) {}
+    }
+
+    async function clearAllAds() {
+      if (!confirm("تحذير: هل أنت متأكد من حذف جميع الإعلانات المسحوبة؟")) return;
+      try {
+        await fetch("/api/db/ads/clear", { method: "POST" });
+        loadDiscoveryAds();
+        refreshTelemetryStats();
+      } catch (e) {}
+    }
+
+    async function factoryReset() {
+      if (!confirm("إجراء خطير: إعادة تهيئة المصنع ستمسح كل شيء في قاعدة البيانات وتبدأ من الصفر. متابعة؟")) return;
+      try {
+        await fetch("/api/db/reset", { method: "POST" });
+        location.reload();
+      } catch (e) {}
+    }
+
+    function appendLog(msg) {
+      const box = document.getElementById("engine-logs-box");
+      if (!box) return;
+      const d = document.createElement("div");
+      d.innerText = `> ${msg}`;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function exportAdsData(fmt) {
       window.location.href = `/api/export/${fmt}`;
     }
 
     function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-      });
+      return (str || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
-
-    // Modal search pages
-    document.getElementById('btn-page-search-modal').onclick = () => {
-      document.getElementById('page-search-modal').classList.remove('hidden');
-    };
-    function closePageModal() {
-      document.getElementById('page-search-modal').classList.add('hidden');
-    }
-    function performPageSearch() {
-      const q = document.getElementById('modal-page-query').value.trim();
-      const country = document.getElementById('cfg-country').value;
-      if (!q) return;
-
-      const container = document.getElementById('modal-page-results');
-      container.innerHTML = '<div class="text-blue-400 text-center py-4">جاري البحث عن الصفحات...</div>';
-
-      fetch(`/api/search_pages?query=${encodeURIComponent(q)}&country=${country}`)
-      .then(res => res.json())
-      .then(data => {
-        container.innerHTML = '';
-        if (!data.pages || data.pages.length === 0) {
-          container.innerHTML = '<div class="text-slate-500 text-center py-4">لم يتم العثور على أي نتائج.</div>';
-          return;
-        }
-        data.pages.forEach(p => {
-          const item = document.createElement('div');
-          item.className = 'p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between hover:border-blue-500 transition';
-          item.innerHTML = `
-            <div>
-              <div class="font-bold text-white">${escapeHtml(p.page_name)}</div>
-              <div class="text-[11px] text-slate-500 font-mono">ID: ${p.page_id} ${p.category ? '• ' + p.category : ''}</div>
-            </div>
-            <button onclick="selectPageId('${p.page_id}')" class="bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white px-3 py-1 rounded text-xs transition">اختيار</button>
-          `;
-          container.appendChild(item);
-        });
-      })
-      .catch(err => {
-        container.innerHTML = `<div class="text-rose-400 text-center py-4">فشل البحث: ${err}</div>`;
-      });
-    }
-
-    function selectPageId(id) {
-      document.getElementById('cfg-page-ids').value = id;
-      closePageModal();
-    }
-
-    // Inspect Facebook Post Engagement via Google Dorking
-    function inspectEngagement(adId) {
-      const ad = adsData.find(a => a.id === adId);
-      if (!ad) return;
-
-      const creative = (ad.creatives && ad.creatives[0]) ? ad.creatives[0] : {};
-      const bodyText = creative.body || '';
-      const pageName = (ad.page && ad.page.name) ? ad.page.name : '';
-
-      const btn = document.getElementById(`btn-engage-${adId}`);
-      const box = document.getElementById(`engagement-box-${adId}`);
-
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="inline-block animate-spin mr-1">↻</span> جاري البحث في جوجل وفحص التفاعل...`;
-      }
-
-      fetch('/api/inspect_engagement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: bodyText, page_name: pageName })
-      })
-      .then(res => res.json())
-      .then(res => {
-        if (res.found) {
-          box.innerHTML = `
-            <div class="bg-indigo-950/40 border border-indigo-500/40 rounded-xl p-3 space-y-1.5 text-xs animate-fade-in">
-              <div class="flex items-center justify-between font-bold text-indigo-300">
-                <span class="flex items-center gap-1.5">🎯 تم العثور على المنشور الأصلي</span>
-                <span class="text-[10px] text-slate-400 font-normal">${res.date || ''}</span>
-              </div>
-              
-              <!-- Metrics Grid -->
-              <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-2 rounded-lg border border-indigo-500/20 text-[11px]">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-slate-400">👍 التفاعل:</span>
-                  <span class="font-bold text-emerald-400 font-mono">${res.reactions || 'متوفر'}</span>
-                </div>
-                ${res.views ? `
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-slate-400">👁️ المشاهدات:</span>
-                    <span class="font-bold text-amber-400 font-mono">${res.views}</span>
-                  </div>
-                ` : ''}
-                ${res.comments ? `
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-slate-400">💬 التعليقات:</span>
-                    <span class="font-bold text-blue-400 font-mono">${res.comments}</span>
-                  </div>
-                ` : ''}
-                ${res.shares ? `
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-slate-400">🔄 المشاركات:</span>
-                    <span class="font-bold text-indigo-300 font-mono">${res.shares}</span>
-                  </div>
-                ` : ''}
-              </div>
-
-              <div class="flex items-center justify-between pt-1 text-[11px]">
-                <a href="${res.post_url}" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-bold flex items-center gap-1">
-                  🔗 فتح البوست الأصلي على فيسبوك ↗
-                </a>
-                <a href="${res.google_url}" target="_blank" class="text-slate-400 hover:text-slate-200 text-[10px]">
-                  نتائج جوجل
-                </a>
-              </div>
-            </div>
-          `;
-        } else {
-          box.innerHTML = `
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1.5">
-              <div class="flex items-center justify-between">
-                <span class="text-amber-400/90 font-semibold">⚠️ ${res.message || res.error || 'لم يتم العثور على منشور مطابق'}</span>
-                ${res.google_url ? `<a href="${res.google_url}" target="_blank" class="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-[10px] hover:bg-blue-600 hover:text-white transition">بحث في جوجل ↗</a>` : ''}
-              </div>
-              ${res.snippet ? `<div class="text-[10px] text-slate-500 truncate">تم البحث بـ: "${escapeHtml(res.snippet)}"</div>` : ''}
-            </div>
-          `;
-        }
-      })
-      .catch(err => {
-        box.innerHTML = `<div class="text-rose-400 text-[11px] p-2">فشل الفحص: ${err}</div>`;
-      });
-    }
-
-    // Initialize on load
-    window.addEventListener('load', () => {
-      initEventStream();
-      refreshDbStats();
-    });
   </script>
 </body>
 </html>

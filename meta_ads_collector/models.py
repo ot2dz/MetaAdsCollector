@@ -106,6 +106,8 @@ class AdCreative:
     thumbnail_url: str | None = None
     cta_text: str | None = None
     cta_type: str | None = None
+    display_format: str | None = None
+    images: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v is not None}
@@ -226,6 +228,8 @@ class Ad:
     # Metadata
     collation_id: str | None = None
     collation_count: int | None = None
+    total_active_time: int | None = None
+    display_format: str | None = None
 
     # Raw data for debugging/extensibility
     raw_data: dict[str, Any] | None = field(default=None, repr=False)
@@ -278,6 +282,8 @@ class Ad:
             "beneficiary_payers": self.beneficiary_payers,
             "collation_id": self.collation_id,
             "collation_count": self.collation_count,
+            "total_active_time": self.total_active_time,
+            "display_format": self.display_format,
             "collected_at": self.collected_at.isoformat(),
             "collection_source": self.collection_source,
         }
@@ -420,6 +426,13 @@ class Ad:
                     or first_image.get("resized_image_url")
                 )
 
+                # Extract all images for multi-images format
+                all_images: list[str] = []
+                for img in images:
+                    img_u = img.get("original_image_url") or img.get("resized_image_url")
+                    if img_u and img_u not in all_images:
+                        all_images.append(img_u)
+
                 creative = AdCreative(
                     body=cls._extract_body_text(data.get("body")),
                     caption=data.get("caption"),
@@ -433,6 +446,8 @@ class Ad:
                     thumbnail_url=thumbnail,
                     cta_text=data.get("cta_text"),
                     cta_type=data.get("cta_type"),
+                    display_format=data.get("display_format"),
+                    images=all_images,
                 )
                 creatives.append(creative)
             else:
@@ -621,6 +636,8 @@ class Ad:
             beneficiary_payers=data.get("beneficiary_payers") or data.get("beneficiaryPayers") or [],
             collation_id=data.get("collation_id") or data.get("collationID"),
             collation_count=data.get("collation_count") or data.get("collationCount"),
+            total_active_time=data.get("total_active_time"),
+            display_format=data.get("display_format"),
             raw_data=data,
         )
 

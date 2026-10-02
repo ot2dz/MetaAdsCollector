@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Web UI for Meta Ads Collector
-==============================
-Provides an interactive, modern browser-based dashboard to control
-MetaAdsCollector, stream collected ads in real-time, view live statistics,
-and export datasets in JSON, CSV, or JSONL.
-
-Run:
-    python web_app.py
-Then open:
-    http://localhost:5001
+Web UI and API for DZ-AdSpy E-commerce Intelligence
+Runs: python web_app.py
+Access at: http://localhost:5001
 """
 
 from __future__ import annotations
@@ -36,18 +29,10 @@ from flask_cors import CORS
 from meta_ads_collector.collector import MetaAdsCollector
 from meta_ads_collector.constants import (
     AD_TYPE_ALL,
-    AD_TYPE_CREDIT,
-    AD_TYPE_EMPLOYMENT,
-    AD_TYPE_HOUSING,
-    AD_TYPE_POLITICAL,
     SEARCH_EXACT,
     SEARCH_KEYWORD,
     SEARCH_PAGE,
-    SORT_IMPRESSIONS,
-    SORT_RELEVANCY,
     STATUS_ACTIVE,
-    STATUS_ALL,
-    STATUS_INACTIVE,
 )
 from meta_ads_collector.events import (
     AD_COLLECTED,
@@ -59,7 +44,7 @@ from meta_ads_collector.events import (
     SESSION_REFRESHED,
     Event,
 )
-from db import db
+from db import db, extract_store_domain
 from meta_ads_collector.dedup import DeduplicationTracker
 from meta_ads_collector.filters import FilterConfig
 from meta_ads_collector.models import Ad
@@ -68,12 +53,33 @@ from meta_ads_collector.proxy_pool import ProxyPool
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("web_app")
 
+class QueueLogHandler(logging.Handler):
+    def __init__(self, q: queue.Queue):
+        super().__init__()
+        self.q = q
+
+    def emit(self, record):
+        try:
+            msg = record.getMessage()
+            if any(p in msg for p in ["/api/stream", "/api/status", "/api/db/stats"]):
+                return
+            self.q.put({
+                "type": "log",
+                "data": {
+                    "text": msg,
+                    "logger": record.name,
+                    "level": record.levelname,
+                    "time": datetime.now().strftime("%H:%M:%S")
+                }
+            })
+        except Exception:
+            pass
+
 app = Flask(__name__)
 CORS(app)
 
-
 class CollectionManager:
-    """Manages the lifecycle of an active collection session in a background thread."""
+    """Manages the collection session."""
 
     def __init__(self):
         self.collector: Optional[MetaAdsCollector] = None
@@ -88,7 +94,6 @@ class CollectionManager:
             "pages_fetched": 0,
             "errors": 0,
             "duplicates_skipped": 0,
-            "early_exit": False,
             "duration_seconds": 0.0,
             "start_time": None,
         }
@@ -103,35 +108,31 @@ class CollectionManager:
             "pages_fetched": 0,
             "errors": 0,
             "duplicates_skipped": 0,
-            "early_exit": False,
             "duration_seconds": 0.0,
             "start_time": time.time(),
         }
 
     def stop(self):
-        if self.stats["is_running"]:
-            logger.info("Stop requested by user")
-            self.stop_requested.set()
-            if self.collector:
-                try:
-                    self.collector.close()
-                except Exception:
-                    pass
+        logger.info("Emergency kill-switch activated by user!")
+        self.stop_requested.set()
+        self.stats["is_running"] = False
+        if self.collector and hasattr(self.collector, "client"):
+            try:
+                self.collector.client.close()
+            except Exception:
+                pass
 
     def run_collection(self, config: dict[str, Any]):
         self.reset()
         start_mono = time.monotonic()
 
-        # Check proxies: from config input, OR fallback to database proxies
+        # Check proxies from input or fallback to database
         proxy_val = config.get("proxy", "").strip()
         proxies_list = []
         if proxy_val:
             proxies_list = [p.strip() for p in proxy_val.split("\n") if p.strip() and not p.startswith("#")]
         else:
-            # Auto-load active proxies from PostgreSQL/SQLite database
             proxies_list = db.get_active_proxies()
-            if proxies_list:
-                logger.info("Loaded %d active proxies directly from database.", len(proxies_list))
 
         proxy_pool = None
         if len(proxies_list) > 1:
@@ -144,17 +145,35 @@ class CollectionManager:
 
         # Setup filters
         filters = None
-        min_imp = config.get("min_impressions")
-        max_imp = config.get("max_impressions")
         has_video = config.get("has_video")
         has_image = config.get("has_image")
+        start_date_str = config.get("start_date") or config.get("start_date_min")
+        end_date_str = config.get("end_date") or config.get("start_date_max")
 
-        if any(v is not None for v in [min_imp, max_imp, has_video, has_image]):
+        start_dt = None
+        end_dt = None
+        clean_start_date = None
+        clean_end_date = None
+
+        if start_date_str:
+            try:
+                clean_start_date = str(start_date_str).split("T")[0]
+                start_dt = datetime.fromisoformat(clean_start_date)
+            except Exception:
+                pass
+        if end_date_str:
+            try:
+                clean_end_date = str(end_date_str).split("T")[0]
+                end_dt = datetime.fromisoformat(clean_end_date).replace(hour=23, minute=59, second=59)
+            except Exception:
+                pass
+
+        if any(v is not None for v in [has_video, has_image, start_dt, end_dt]):
             filters = FilterConfig(
-                min_impressions=int(min_imp) if min_imp else None,
-                max_impressions=int(max_imp) if max_imp else None,
                 has_video=bool(has_video) if has_video is not None else None,
                 has_image=bool(has_image) if has_image is not None else None,
+                start_date=start_dt,
+                end_date=end_dt,
             )
 
         try:
@@ -164,34 +183,44 @@ class CollectionManager:
                 timeout=timeout,
             )
 
-            # Wire events
+            # Events
             def on_started(evt: Event):
                 self.event_queue.put({"type": "started", "data": evt.data})
 
             def on_page(evt: Event):
                 self.stats["pages_fetched"] = evt.data.get("page_number", 0)
+                if evt.data.get("total_available"):
+                    self.stats["total_available"] = evt.data.get("total_available")
                 self.event_queue.put({"type": "page_fetched", "data": evt.data})
 
             def on_ad(evt: Event):
                 ad_obj: Ad = evt.data.get("ad")
                 if ad_obj:
                     ad_dict = ad_obj.to_dict()
+                    creatives = ad_dict.get("creatives") or []
+                    primary = creatives[0] if creatives else {}
+                    link_url = primary.get("link_url") or ""
+                    
+                    # Extract store domain
+                    store_domain, store_platform = extract_store_domain(link_url)
+                    ad_dict["store_domain"] = store_domain
+                    ad_dict["store_platform"] = store_platform
+
+                    # STRICT STORE FILTER: Ignore ads that do not possess a real store domain
+                    only_stores = config.get("stores_only", True)
+                    if only_stores and not store_domain:
+                        return
+
                     self.collected_ads.append(ad_dict)
                     self.stats["ads_collected"] = len(self.collected_ads)
                     
-                    # Real-time save into PostgreSQL / Database
+                    # Persist to database
                     try:
-                        db.save_ad(ad_dict, query=config.get("query", ""), country=config.get("country", "DZ"))
+                        db.save_ad(ad_dict, query=config.get("query", ""), country="DZ", stores_only=only_stores)
                     except Exception as db_err:
-                        logger.warning("Error saving ad %s to database: %s", ad_dict.get("id"), db_err)
+                        logger.warning("Error persisting ad %s: %s", ad_dict.get("id"), db_err)
 
                     self.event_queue.put({"type": "ad", "data": ad_dict})
-
-            def on_rate_limited(evt: Event):
-                self.event_queue.put({"type": "rate_limited", "data": evt.data})
-
-            def on_session_refreshed(evt: Event):
-                self.event_queue.put({"type": "session_refreshed", "data": evt.data})
 
             def on_error(evt: Event):
                 self.stats["errors"] += 1
@@ -200,30 +229,35 @@ class CollectionManager:
             self.collector.event_emitter.on(COLLECTION_STARTED, on_started)
             self.collector.event_emitter.on(PAGE_FETCHED, on_page)
             self.collector.event_emitter.on(AD_COLLECTED, on_ad)
-            self.collector.event_emitter.on(RATE_LIMITED, on_rate_limited)
-            self.collector.event_emitter.on(SESSION_REFRESHED, on_session_refreshed)
             self.collector.event_emitter.on(ERROR_OCCURRED, on_error)
 
-            query = config.get("query", "").strip()
-            country = config.get("country", "DZ").strip().upper()
+            # 1. Custom Keyword or Automatic Trick for All Algeria Ads
+            raw_query = config.get("query", "").strip()
+            if raw_query:
+                query = raw_query
+                search_type = config.get("search_type", SEARCH_KEYWORD)
+                logger.info(f"Targeting custom keyword: {query!r} (Search Type: {search_type})")
+            else:
+                # Master trick: ' ' exact phrase pulls ALL Algerian Arabic ads from newest to oldest!
+                query = " "
+                search_type = SEARCH_EXACT
+                logger.info("Targeting ALL Algerian Ads (Global Trick: query=' ', exact phrase)")
+
+            country = "DZ"
             ad_type = config.get("ad_type", AD_TYPE_ALL)
             status = config.get("status", STATUS_ACTIVE)
-            search_type = config.get("search_type", SEARCH_KEYWORD)
-            
-            # Smart Incremental Mode:
+            # Strictly newest to oldest
+            sort_by = "SORT_BY_RELEVANCY_MONTHLY_GROUPED"
+
+            # Deduplication mode: only enable when explicitly requested
             is_incremental = bool(config.get("incremental", False))
             dedup_tracker = None
             max_consecutive_seen = None
 
             if is_incremental:
-                # In incremental mode, sort by relevancy/newest, enable persistent database and early-exit
-                sort_by = SORT_RELEVANCY
                 db_path = os.path.join(os.path.dirname(__file__), "collection_state.db")
                 dedup_tracker = DeduplicationTracker(mode="persistent", db_path=db_path)
-                max_consecutive_seen = int(config.get("max_consecutive_seen", 15))
-                logger.info("Incremental delta mode enabled with early-exit at %d duplicates", max_consecutive_seen)
-            else:
-                sort_by = SORT_IMPRESSIONS if config.get("sort_by") == "impressions" else SORT_RELEVANCY
+                max_consecutive_seen = int(config.get("max_consecutive_seen", 25))
 
             max_results = int(config.get("max_results")) if config.get("max_results") else None
             page_size = int(config.get("page_size", 10))
@@ -242,11 +276,14 @@ class CollectionManager:
                 filter_config=filters,
                 dedup_tracker=dedup_tracker,
                 max_consecutive_seen=max_consecutive_seen,
+                stop_event=self.stop_requested,
+                start_date=clean_start_date,
+                end_date=clean_end_date,
             )
 
             for _ in search_generator:
                 if self.stop_requested.is_set():
-                    logger.info("Collection loop interrupted by stop signal")
+                    logger.info("Collection interrupted by stop signal")
                     break
 
         except Exception as exc:
@@ -262,11 +299,10 @@ class CollectionManager:
                 except Exception:
                     pass
 
-            # Log collection to Database
             try:
                 db.log_collection(
-                    query=config.get("query", ""),
-                    country=config.get("country", "DZ"),
+                    query=config.get("query", "ALL_DZ"),
+                    country="DZ",
                     total_collected=len(self.collected_ads),
                     duration_seconds=self.stats["duration_seconds"],
                 )
@@ -278,509 +314,206 @@ class CollectionManager:
                 "data": {
                     "total_collected": len(self.collected_ads),
                     "duration": self.stats["duration_seconds"],
-                    "early_exit": self.stats.get("early_exit", False),
                 },
             })
 
-
 manager = CollectionManager()
 
+queue_log_handler = QueueLogHandler(manager.event_queue)
+queue_log_handler.setFormatter(logging.Formatter("%(message)s"))
+logging.getLogger().addHandler(queue_log_handler)
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-
 @app.route("/api/start", methods=["POST"])
 def api_start():
     if manager.stats["is_running"]:
-        return jsonify({"error": "A collection session is already running."}), 400
+        if manager.thread and manager.thread.is_alive():
+            return jsonify({"error": "جلسة سحب قيد التشغيل بالفعل."}), 400
+        else:
+            manager.stats["is_running"] = False
 
     config = request.get_json(force=True, silent=True) or {}
+    logger.info("بدء جولة رصد وسحب جديدة (DZ-AdSpy Core)...")
     manager.thread = threading.Thread(target=manager.run_collection, args=(config,), daemon=True)
     manager.thread.start()
-    return jsonify({"status": "started", "message": "Collection initiated successfully."})
-
+    return jsonify({"status": "started", "message": "Radar collection initiated successfully."})
 
 @app.route("/api/stop", methods=["POST"])
 def api_stop():
     manager.stop()
     return jsonify({"status": "stopping", "message": "Stop signal sent."})
 
+# Helper to detect current outbound IP used by the system
+_cached_ip_info = {"ip": "127.0.0.1", "is_proxy": False, "checked_at": 0}
 
-@app.route("/api/dedup_stats", methods=["GET"])
-def api_dedup_stats():
-    """Return number of tracked ads in persistent deduplication database."""
-    db_path = os.path.join(os.path.dirname(__file__), "collection_state.db")
-    count = 0
-    last_run = None
-    if os.path.exists(db_path):
-        tracker = DeduplicationTracker(mode="persistent", db_path=db_path)
-        count = tracker.count()
-        last = tracker.get_last_collection_time()
-        last_run = last.isoformat() if last else None
-        tracker.close()
-    return jsonify({"total_seen_ads": count, "last_collection_time": last_run})
+def get_outbound_ip_info(current_proxy: Optional[str] = None) -> dict[str, Any]:
+    global _cached_ip_info
+    now = time.time()
+    # Cache for 20 seconds to prevent hammering ipify
+    if now - _cached_ip_info["checked_at"] < 20 and not current_proxy:
+        return _cached_ip_info
 
+    try:
+        from curl_cffi.requests import Session as CffiSession
+        s = CffiSession(impersonate="chrome")
+        if current_proxy:
+            s.proxies = {"http": current_proxy, "https": current_proxy}
+        
+        resp = s.get("https://api.ipify.org?format=json", timeout=6)
+        if resp.status_code == 200:
+            ip = resp.json().get("ip")
+            _cached_ip_info = {
+                "ip": ip,
+                "is_proxy": bool(current_proxy),
+                "proxy_host": current_proxy.split("@")[-1] if current_proxy else None,
+                "checked_at": now
+            }
+    except Exception as exc:
+        logger.debug("IP detection note: %s", exc)
 
-@app.route("/api/clear_dedup", methods=["POST"])
-def api_clear_dedup():
-    """Clear persistent deduplication history."""
-    db_path = os.path.join(os.path.dirname(__file__), "collection_state.db")
-    if os.path.exists(db_path):
-        tracker = DeduplicationTracker(mode="persistent", db_path=db_path)
-        tracker.clear()
-        tracker.close()
-    return jsonify({"status": "cleared", "message": "تم تصفية سجل الإعلانات السابقة بنجاح."})
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PostgreSQL Database Management Endpoints
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@app.route("/api/db/stats", methods=["GET"])
-def api_db_stats():
-    """Return database metrics and stats."""
-    return jsonify(db.get_stats())
-
-
-@app.route("/api/db/ads", methods=["GET"])
-def api_db_ads():
-    """Retrieve archived ads from PostgreSQL database with pagination."""
-    limit = int(request.args.get("limit", 50))
-    offset = int(request.args.get("offset", 0))
-    query = request.args.get("query", "").strip()
-    country = request.args.get("country", "").strip()
-
-    ads = db.get_ads(limit=limit, offset=offset, query=query, country=country)
-    total = db.count_ads(query=query, country=country)
-    return jsonify({"ads": ads, "total": total, "limit": limit, "offset": offset})
-
-
-@app.route("/api/db/ads/<ad_id>", methods=["DELETE"])
-def api_db_delete_ad(ad_id: str):
-    """Delete a single ad from the database."""
-    db.delete_ad(ad_id)
-    return jsonify({"status": "deleted", "id": ad_id})
-
-
-@app.route("/api/db/ads/clear", methods=["POST"])
-def api_db_clear_ads():
-    """Delete all ads from database."""
-    count = db.clear_ads()
-    return jsonify({"status": "cleared", "deleted_count": count})
-
-
-@app.route("/api/db/proxies", methods=["GET"])
-def api_db_proxies():
-    """List all proxies stored in database."""
-    proxies = db.get_all_proxies()
-    return jsonify({"proxies": proxies})
-
-
-@app.route("/api/db/proxies", methods=["POST"])
-def api_db_add_proxies():
-    """Add proxy or proxies to the database."""
-    data = request.get_json(force=True, silent=True) or {}
-    proxy_text = data.get("proxies", "")
-    added = db.add_proxies_bulk(proxy_text)
-    return jsonify({"status": "success", "added_count": added})
-
-
-@app.route("/api/db/proxies/<int:proxy_id>", methods=["DELETE"])
-def api_db_delete_proxy(proxy_id: int):
-    """Delete a proxy by its ID."""
-    db.delete_proxy(proxy_id)
-    return jsonify({"status": "deleted", "proxy_id": proxy_id})
-
-
-@app.route("/api/db/proxies/clear", methods=["POST"])
-def api_db_clear_proxies():
-    """Delete all proxies from database."""
-    count = db.clear_proxies()
-    return jsonify({"status": "cleared", "count": count})
-
-
-@app.route("/api/db/reset", methods=["POST"])
-def api_db_reset():
-    """Factory Reset: Completely wipe and rebuild database tables."""
-    db.factory_reset()
-    return jsonify({"status": "reset", "message": "تمت إعادة تهيئة قاعدة البيانات بالكامل بنجاح."})
-
+    return _cached_ip_info
 
 @app.route("/api/status", methods=["GET"])
 def api_status():
     stats = dict(manager.stats)
     if stats["is_running"] and stats["start_time"]:
         stats["duration_seconds"] = round(time.time() - stats["start_time"], 1)
+    
+    # Attach current outbound IP and proxy status
+    current_proxy = manager.collector.client._current_proxy if (manager.collector and hasattr(manager.collector, "client")) else None
+    stats["network"] = get_outbound_ip_info(current_proxy)
     return jsonify(stats)
-
 
 @app.route("/api/stream")
 def api_stream():
-    """Server-Sent Events (SSE) endpoint to push real-time collection updates to browser."""
-
     def event_stream():
         while True:
             try:
-                # Wait for next event
                 item = manager.event_queue.get(timeout=1.0)
                 yield f"data: {json.dumps(item)}\n\n"
             except queue.Empty:
-                # Send heartbeat keep-alive
                 yield f"data: {json.dumps({'type': 'ping'})}\n\n"
-
     return Response(event_stream(), mimetype="text/event-stream")
 
+# ── Stores Directory API ───────────────────────────────────────────────────
 
-def extract_search_snippet(text: str) -> str:
-    """Extract a clean, meaningful hook sentence from ad text, avoiding URLs and CTAs."""
-    if not text:
-        return ""
+@app.route("/api/stores", methods=["GET"])
+def api_stores():
+    platform = request.args.get("platform", "").strip()
+    search = request.args.get("search", "").strip()
+    stores = db.get_stores_directory(platform=platform, search=search)
+    return jsonify({"stores": stores, "total": len(stores)})
 
-    import re
+# ── Watchlist API ──────────────────────────────────────────────────────────
 
-    # 1. إزالة جميع الروابط بالكامل حتى لا تتسبب النقاط (dots) في قص الكلمات
-    clean = re.sub(r"https?://\S+|www\.\S+", " ", text)
+@app.route("/api/watchlist", methods=["GET"])
+def api_get_watchlist():
+    items = db.get_watchlist()
+    return jsonify({"watchlist": items})
 
-    # 2. إزالة أرقام الهواتف والإيميلات والهاشتاجات
-    clean = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", " ", clean)
-    clean = re.sub(r"\+?\d[\d\s\-\(\)]{7,}\d", " ", clean)
-    clean = re.sub(r"#\S+", " ", clean)
-
-    # 3. أخذ السطر الأول (في إعلانات فيسبوك السطر الأول دائماً هو العنوان الجاذب)
-    lines = [line.strip() for line in clean.splitlines() if line.strip()]
-    first_block = lines[0] if lines else clean
-
-    # 4. إيقاف الجملة عند كلمات وروابط الطلب الشائعة
-    cta_patterns = [
-        r"(?:للطلب|لطلب|الطلب|اضغط|للشراء|سارع|تواصل|عبر الرابط|من هنا|رابط المتجر|متجرنا|علقي|كومنتي).*",
-    ]
-    hook_text = first_block
-    for cta_pat in cta_patterns:
-        match = re.search(cta_pat, hook_text, flags=re.IGNORECASE)
-        if match and match.start() >= 25:
-            hook_text = hook_text[:match.start()]
-            break
-
-    # 5. تنظيف المسافات والفواصل الزائدة
-    words = [w for w in re.split(r"\s+", hook_text) if w and not re.match(r"^[:;,.!؟?()\[\]{}]+$", w)]
-
-    # إذا كانت الكلمات قليلة جداً بعد القص، نأخذ الكلمات الأولى من النص الكامل النظيف
-    if len(words) < 5:
-        words = [w for w in re.split(r"\s+", clean) if w and not re.match(r"^[:;,.!؟?()\[\]{}]+$", w)]
-
-    # 6. اختيار من 8 إلى 12 كلمة (بين 45 و 75 حرفاً) لتكوين جملة بحث دقيقة ومتكاملة
-    selected_words = []
-    total_len = 0
-    for w in words:
-        if total_len + len(w) + 1 > 75 and len(selected_words) >= 6:
-            break
-        selected_words.append(w)
-        total_len += len(w) + 1
-        if total_len >= 55 and len(selected_words) >= 8:
-            break
-
-    snippet = " ".join(selected_words).strip('"\',.:؛،!?؟ ')
-    return snippet
-
-
-SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "").strip()
-
-
-def scrape_facebook_engagement(post_url: str) -> dict[str, Any]:
-    """Lightweight pure-python extraction of reactions, comments, shares from public Facebook posts."""
-    import re
-    from curl_cffi.requests import Session as CffiSession
-
-    metrics = {
-        "reactions": None,
-        "comments": None,
-        "shares": None,
-        "views": None,
-    }
-
-    try:
-        session = CffiSession(impersonate="chrome")
-        session.cookies.set("wd", "1920x1080", domain=".facebook.com")
-        session.cookies.set("dpr", "1", domain=".facebook.com")
-
-        headers = {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-        }
-
-        resp = session.get(post_url, headers=headers, timeout=8, allow_redirects=True)
-        if resp.status_code != 200:
-            return metrics
-
-        html = resp.text
-
-        # 1. استخراج التفاعلات الحقيقية (Reactions)
-        react_match = re.search(r'"reaction_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)', html)
-        if not react_match:
-            react_match = re.search(r'"i18n_reaction_count"\s*:\s*"([^"]+)"', html)
-        if react_match:
-            metrics["reactions"] = react_match.group(1)
-
-        # 2. استخراج التعليقات (Comments)
-        comment_match = re.search(r'"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*(\d+)', html)
-        if not comment_match:
-            comment_match = re.search(r'"total_comment_count"\s*:\s*(\d+)', html)
-        if not comment_match:
-            comment_match = re.search(r'"i18n_comment_count"\s*:\s*"([^"]+)"', html)
-        if comment_match:
-            metrics["comments"] = comment_match.group(1)
-
-        # 3. استخراج المشاركات (Shares)
-        share_match = re.search(r'"share_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)', html)
-        if not share_match:
-            share_match = re.search(r'"i18n_share_count"\s*:\s*"([^"]+)"', html)
-        if share_match:
-            metrics["shares"] = share_match.group(1)
-
-        logger.info("Facebook engagement metrics: %s", metrics)
-
-    except Exception as exc:
-        logger.warning("Facebook request note: %s", exc)
-
-    return metrics
-
-
-def search_facebook_post_engagement(ad_text: str, page_name: str = "") -> dict[str, Any]:
-    """Search Google via Serper.dev API to accurately find the original Facebook post."""
-    import os
-    import re
-    import urllib.parse
-    import requests
-
-    api_key = os.environ.get("SERPER_API_KEY", SERPER_API_KEY)
-
-    snippet = extract_search_snippet(ad_text)
-    if not snippet or len(snippet) < 10:
-        return {
-            "found": False,
-            "error": "نص الإعلان قصير جداً لاستخراج جملة بحث مميزة.",
-            "snippet": snippet,
-        }
-
-    logger.info("=" * 65)
-    logger.info("🚀 [Serper.dev API] فحص تفاعل الإعلان للجملة: %r", snippet)
-
-    search_query_exact = f'"{snippet}" site:facebook.com'
-    google_web_url = f"https://www.google.com/search?q={urllib.parse.quote(search_query_exact)}"
-
-    endpoint = "https://google.serper.dev/search"
-    headers = {
-        "X-API-KEY": api_key,
-        "Content-Type": "application/json",
-    }
-
-    found_url = None
-    post_title = None
-    reactions = None
-    date_str = None
-
-    def parse_serper_results(items: list[dict[str, Any]]) -> bool:
-        nonlocal found_url, post_title, reactions, date_str
-        for item in items:
-            link = item.get("link", "")
-            title = item.get("title", "")
-            item_snippet = item.get("snippet", "")
-
-            # التأكد من أنه رابط منشور أو فيديو في فيسبوك
-            if "facebook.com" in link:
-                clean_link = link.split("&")[0].split("?")[0].rstrip("/.,;")
-                if not any(bad in clean_link for bad in ["/login", "/help", "/policies", "/ads", "/public", "/recover", "sharer", "/pages/category"]):
-                    found_url = link
-                    post_title = title
-
-                    # استخراج التفاعلات من مقتطف النتيجة أو الـ attributes
-                    combined_text = f"{title} {item_snippet} {json.dumps(item.get('attributes', {}), ensure_ascii=False)}"
-                    m_react = re.search(r'([\d,.]+[KMBkmb]?\+?\s*(?:reactions?|تفاعل|likes?|إعجاب|views?|مشاهدة))', combined_text, re.IGNORECASE)
-                    if m_react:
-                        reactions = m_react.group(1).strip()
-
-                    # استخراج التاريخ
-                    date_val = item.get("date")
-                    if date_val:
-                        date_str = date_val
-                    else:
-                        m_date = re.search(r'(\d+\s*(?:days?|hours?|months?|weeks?|أيام|ساعات|أشهر|يوم|شهر)\s*ago|منذ\s*\d+\s*(?:يوم|أيام|ساعة|ساعات))', combined_text, re.IGNORECASE)
-                        if m_date:
-                            date_str = m_date.group(1).strip()
-
-                    logger.info("🎯 [Serper.dev] تم العثور على البوست الأصلي: %s", found_url)
-                    logger.info("📊 التفاعل: %s | التاريخ: %s", reactions, date_str)
-                    return True
-        return False
-
-    try:
-        # المحاولة 1: بحث دقيق بالجملة المطابقة تماماً
-        payload = {
-            "q": search_query_exact,
-            "gl": "dz",
-            "hl": "ar",
-            "num": 5,
-        }
-        res = requests.post(endpoint, headers=headers, json=payload, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            organic = data.get("organic", [])
-            parse_serper_results(organic)
-        else:
-            logger.warning("Serper API returned status: %d - %s", res.status_code, res.text)
-
-        # المحاولة 2: إذا لم يجد مع التنصيص، نبحث بدون تنصيص لمرونة تامة
-        if not found_url:
-            logger.info("محاولة البحث بدون علامات تنصيص لمرونة أكبر...")
-            query_broad = f"{snippet} site:facebook.com"
-            payload_broad = {
-                "q": query_broad,
-                "gl": "dz",
-                "hl": "ar",
-                "num": 5,
-            }
-            res_broad = requests.post(endpoint, headers=headers, json=payload_broad, timeout=10)
-            if res_broad.status_code == 200:
-                data_broad = res_broad.json()
-                parse_serper_results(data_broad.get("organic", []))
-
-    except Exception as exc:
-        logger.error("خطأ أثناء الاتصال بـ Serper.dev: %s", exc, exc_info=True)
-        return {
-            "found": False,
-            "google_url": google_web_url,
-            "snippet": snippet,
-            "error": f"خطأ في الاتصال: {exc}",
-        }
-
-    logger.info("=" * 65)
-
-    if found_url:
-        # فحص عميق للبوست الأصلي على فيسبوك لجلب المشاهدات والتعليقات واللايكات
-        fb_metrics = scrape_facebook_engagement(found_url)
-
-        return {
-            "found": True,
-            "post_url": found_url,
-            "post_title": post_title or "",
-            "reactions": fb_metrics.get("reactions") or reactions or "متوفر في البوست",
-            "comments": fb_metrics.get("comments"),
-            "shares": fb_metrics.get("shares"),
-            "views": fb_metrics.get("views"),
-            "date": date_str or "",
-            "snippet": snippet,
-            "google_url": google_web_url,
-        }
-
-    return {
-        "found": False,
-        "google_url": google_web_url,
-        "snippet": snippet,
-        "message": "لم يتم العثور على منشور مطابق في جوجل (غالباً إعلان Dark Post مخفي).",
-    }
-    
-@app.route("/api/inspect_engagement", methods=["POST"])
-def api_inspect_engagement():
+@app.route("/api/watchlist", methods=["POST"])
+def api_add_watchlist():
     data = request.get_json(force=True, silent=True) or {}
-    ad_text = data.get("text", "")
-    page_name = data.get("page_name", "")
+    target = data.get("target", "").strip()
+    if not target:
+        return jsonify({"error": "يرجى إدخال رابط المنافس أو معرّف الصفحة."}), 400
+    
+    name = data.get("name", "")
+    store_domain, platform = extract_store_domain(target)
+    if not store_domain and "." in target:
+        store_domain = target
+    
+    db.add_watchlist_item(target=target, name=name or store_domain or target, store_domain=store_domain or "", platform=platform or "")
+    return jsonify({"status": "success", "message": "تمت إضافة المنافس للرادار بنجاح."})
 
-    result = search_facebook_post_engagement(ad_text=ad_text, page_name=page_name)
-    return jsonify(result)
+@app.route("/api/watchlist/<int:item_id>", methods=["DELETE"])
+def api_delete_watchlist(item_id: int):
+    db.remove_watchlist_item(item_id)
+    return jsonify({"status": "deleted", "id": item_id})
 
+# ── Ads & Database APIs ────────────────────────────────────────────────────
 
-# Lightweight API mode - Brand dossier removed
-
-
-@app.route("/api/search_pages", methods=["GET"])
-def api_search_pages():
+@app.route("/api/db/ads", methods=["GET"])
+def api_db_ads():
+    limit = int(request.args.get("limit", 60))
+    offset = int(request.args.get("offset", 0))
     query = request.args.get("query", "").strip()
-    country = request.args.get("country", "DZ").strip().upper()
-    if not query:
-        return jsonify({"pages": []})
+    country = request.args.get("country", "").strip()
+    stores_only = request.args.get("stores_only", "true").lower() == "true"
 
-    collector = MetaAdsCollector(timeout=15)
-    try:
-        pages = collector.search_pages(query=query, country=country)
-        return jsonify({"pages": [p.to_dict() for p in pages]})
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
-    finally:
-        collector.close()
+    ads = db.get_ads(limit=limit, offset=offset, query=query, country=country, stores_only=stores_only)
+    total = db.count_ads(query=query, country=country, stores_only=stores_only)
+    return jsonify({"ads": ads, "total": total, "limit": limit, "offset": offset})
 
+@app.route("/api/db/stats", methods=["GET"])
+def api_db_stats():
+    return jsonify(db.get_stats())
+
+@app.route("/api/db/proxies", methods=["GET"])
+def api_db_proxies():
+    return jsonify({"proxies": db.get_all_proxies()})
+
+@app.route("/api/db/proxies", methods=["POST"])
+def api_db_add_proxies():
+    data = request.get_json(force=True, silent=True) or {}
+    proxy_text = data.get("proxies", "")
+    added = db.add_proxies_bulk(proxy_text)
+    return jsonify({"status": "success", "added_count": added})
+
+@app.route("/api/db/proxies/<int:proxy_id>", methods=["DELETE"])
+def api_db_delete_proxy(proxy_id: int):
+    db.delete_proxy(proxy_id)
+    return jsonify({"status": "deleted", "proxy_id": proxy_id})
+
+@app.route("/api/db/proxies/clear", methods=["POST"])
+def api_db_clear_proxies():
+    count = db.clear_proxies()
+    return jsonify({"status": "cleared", "count": count})
+
+@app.route("/api/db/reset", methods=["POST"])
+def api_db_reset():
+    db.factory_reset()
+    return jsonify({"status": "reset", "message": "تمت إعادة تهيئة قاعدة البيانات بالكامل."})
 
 @app.route("/api/export/<fmt>", methods=["GET"])
 def api_export(fmt: str):
-    ads = manager.collected_ads
+    ads = manager.collected_ads or db.get_ads(limit=500, stores_only=True)
     fmt = fmt.lower()
 
     if fmt == "json":
         buf = io.BytesIO(json.dumps(ads, indent=2, ensure_ascii=False).encode("utf-8"))
-        filename = f"meta_ads_{int(time.time())}.json"
-        return send_file(buf, as_attachment=True, download_name=filename, mimetype="application/json")
-
-    elif fmt == "jsonl":
-        lines = [json.dumps(ad, ensure_ascii=False) + "\n" for ad in ads]
-        buf = io.BytesIO("".join(lines).encode("utf-8"))
-        filename = f"meta_ads_{int(time.time())}.jsonl"
-        return send_file(buf, as_attachment=True, download_name=filename, mimetype="application/x-ndjson")
-
+        return send_file(buf, as_attachment=True, download_name=f"dz_ads_{int(time.time())}.json", mimetype="application/json")
     elif fmt == "csv":
         output = io.StringIO()
-        columns = [
-            "id", "page_name", "page_id", "is_active", "delivery_start_time",
-            "body", "title", "image_url", "video_url", "link_url", "cta_text",
-            "impressions_lower", "impressions_upper", "spend_lower", "spend_upper",
-            "currency", "publisher_platforms", "collected_at"
-        ]
+        columns = ["id", "page_name", "store_domain", "store_platform", "delivery_start_time", "body", "link_url", "image_url", "video_url", "cta_text"]
         writer = csv.DictWriter(output, fieldnames=columns)
         writer.writeheader()
-
         for ad in ads:
             creatives = ad.get("creatives", [])
             primary = creatives[0] if creatives else {}
             page = ad.get("page") or {}
-            imp = ad.get("impressions") or {}
-            spd = ad.get("spend") or {}
-
             writer.writerow({
                 "id": ad.get("id"),
-                "page_name": page.get("name", ""),
-                "page_id": page.get("id", ""),
-                "is_active": ad.get("is_active"),
+                "page_name": page.get("name", "") if isinstance(page, dict) else ad.get("page_name", ""),
+                "store_domain": ad.get("store_domain", ""),
+                "store_platform": ad.get("store_platform", ""),
                 "delivery_start_time": ad.get("delivery_start_time", ""),
-                "body": primary.get("body", ""),
-                "title": primary.get("title", ""),
-                "image_url": primary.get("image_url", ""),
-                "video_url": primary.get("video_url") or primary.get("video_hd_url", ""),
-                "link_url": primary.get("link_url", ""),
-                "cta_text": primary.get("cta_text", ""),
-                "impressions_lower": imp.get("lower_bound", ""),
-                "impressions_upper": imp.get("upper_bound", ""),
-                "spend_lower": spd.get("lower_bound", ""),
-                "spend_upper": spd.get("upper_bound", ""),
-                "currency": spd.get("currency", ""),
-                "publisher_platforms": ",".join(ad.get("publisher_platforms", [])),
-                "collected_at": ad.get("collected_at", ""),
+                "body": primary.get("body", "") if isinstance(primary, dict) else ad.get("body", ""),
+                "link_url": primary.get("link_url", "") if isinstance(primary, dict) else ad.get("link_url", ""),
+                "image_url": primary.get("image_url", "") if isinstance(primary, dict) else ad.get("image_url", ""),
+                "video_url": primary.get("video_url", "") if isinstance(primary, dict) else ad.get("video_url", ""),
+                "cta_text": primary.get("cta_text", "") if isinstance(primary, dict) else ad.get("cta_text", ""),
             })
-
         buf = io.BytesIO(output.getvalue().encode("utf-8"))
-        filename = f"meta_ads_{int(time.time())}.csv"
-        return send_file(buf, as_attachment=True, download_name=filename, mimetype="text/csv")
+        return send_file(buf, as_attachment=True, download_name=f"dz_ads_{int(time.time())}.csv", mimetype="text/csv")
 
     return jsonify({"error": f"Unsupported format: {fmt}"}), 400
 
-
 if __name__ == "__main__":
     print("=" * 65)
-    print("  🚀 Meta Ads Collector Web Dashboard is running!")
-    print("  🌐 Open in your browser: http://127.0.0.1:5001")
+    print(" 🚀 DZ-AdSpy Platform Running on http://127.0.0.1:5001")
     print("=" * 65)
     app.run(host="0.0.0.0", port=5001, debug=False)

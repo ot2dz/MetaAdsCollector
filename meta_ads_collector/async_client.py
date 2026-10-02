@@ -516,6 +516,8 @@ class AsyncMetaAdsClient:
         sort_mode: str | None = "SORT_BY_TOTAL_IMPRESSIONS",
         session_id: str | None = None,
         collation_token: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> tuple[dict[str, Any], str | None]:
         """Search for ads (async version).
 
@@ -558,8 +560,8 @@ class AsyncMetaAdsClient:
             "searchType": search_type,
             "sessionID": session_id,
             "source": None,
-            "startDate": None,
-            "v": self._tokens.get("v", "fbece7"),
+            "startDate": start_date or None,
+            "v": self._tokens.get("v", "15e849"),
             "viewAllPageID": "0",
         }
 
@@ -568,17 +570,22 @@ class AsyncMetaAdsClient:
                 "direction": sort_direction,
                 "mode": sort_mode,
             }
+        elif sort_mode == "SORT_BY_RELEVANCY_MONTHLY_GROUPED":
+            variables["sortData"] = {
+                "direction": "DESCENDING",
+                "mode": "SORT_BY_RELEVANCY_MONTHLY_GROUPED",
+            }
 
         if cursor:
             variables["cursor"] = cursor
 
-        search_doc_id = self._doc_ids.get(
-            "AdLibrarySearchPaginationQuery", DOC_ID_SEARCH,
-        )
+        search_doc_id = self._doc_ids.get("AdLibrarySearchPaginationQuery", DOC_ID_SEARCH)
+        friendly_name = "AdLibrarySearchPaginationQuery"
+
         payload = self._build_graphql_payload(
             doc_id=search_doc_id,
             variables=variables,
-            friendly_name="AdLibrarySearchPaginationQuery",
+            friendly_name=friendly_name,
         )
 
         ad_type_url = {
@@ -590,7 +597,7 @@ class AsyncMetaAdsClient:
         }.get(ad_type, "all")
 
         headers = dict(self._fingerprint.get_graphql_headers())
-        headers["x-fb-friendly-name"] = "AdLibrarySearchPaginationQuery"
+        headers["x-fb-friendly-name"] = friendly_name
         headers["x-fb-lsd"] = self._tokens.get("lsd", "")
         headers["referer"] = (
             f"{self.AD_LIBRARY_URL}?active_status={active_status.lower()}"
@@ -632,10 +639,7 @@ class AsyncMetaAdsClient:
             )
 
         text = response.text
-        if text.startswith("for (;;);"):
-            text = text[9:]
-
-        data = json.loads(text)
+        data = self._logic._parse_raw_graphql_text(text)
 
         if "errors" in data:
             errors = data["errors"]
@@ -700,10 +704,7 @@ class AsyncMetaAdsClient:
                 return []
 
             text = response.text
-            if text.startswith("for (;;);"):
-                text = text[9:]
-
-            data = json.loads(text)
+            data = self._logic._parse_raw_graphql_text(text)
             return self._parse_typeahead_response(data)
 
         except Exception as exc:

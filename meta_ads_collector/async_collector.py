@@ -245,6 +245,14 @@ class AsyncMetaAdsCollector:
         search_session_id = str(uuid.uuid4())
         search_collation_token = str(uuid.uuid4())
 
+        api_start_date = None
+        api_end_date = None
+        if filter_config:
+            if filter_config.start_date:
+                api_start_date = filter_config.start_date.strftime("%Y-%m-%d")
+            if filter_config.end_date:
+                api_end_date = filter_config.end_date.strftime("%Y-%m-%d")
+
         logger.info("Starting async search: query='%s', country=%s", query, country)
 
         self.event_emitter.emit(COLLECTION_STARTED, {
@@ -281,6 +289,8 @@ class AsyncMetaAdsCollector:
                             sort_mode=sort_by,
                             session_id=search_session_id,
                             collation_token=search_collation_token,
+                            start_date=api_start_date,
+                            end_date=api_end_date,
                         )
 
                         if response.get("rate_limited"):

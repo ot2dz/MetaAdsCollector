@@ -52,8 +52,26 @@ DEFAULT_PAGE_SIZE = 10  # results per API request (max ~30)
 # values likely need updating.  Run the library with DEBUG logging
 # to see whether dynamic extraction is succeeding.
 # ---------------------------------------------------------------------------
-DOC_ID_SEARCH = "25464068859919530"  # AdLibrarySearchPaginationQuery
+DOC_ID_SEARCH = "26617181747964058"  # AdLibraryMobileFocusedStateProviderRefetchQuery (Modern 2026)
+DOC_ID_SEARCH_LEGACY = "25464068859919530"  # AdLibrarySearchPaginationQuery (Root Query fallback)
 DOC_ID_TYPEAHEAD = "9755915494515334"  # useAdLibraryTypeaheadSuggestionDataSourceQuery
+
+# ---------------------------------------------------------------------------
+# Modern 2026 Relay Component Tokens (extracted from active browser session)
+# ---------------------------------------------------------------------------
+MODERN_DYN = (
+    "7xe6E5q9zo5ObwKBAg5S1Dxu13wqovzEdF8aUco2qwJwCwfW7oqx609vCyU4a0qa2O1Vwooa8462mcw5Mx62G3i1ywOwv89k2C1Fwc61"
+    "Axi2a7o2ezXwrUcUjwGzE2VKUbo5G0zK5o4q0HU1IEGdw46wbLwrU6C2-0VE6O1FwlU3NG2O1Tw4-w3C8do"
+)
+MODERN_CSR = (
+    "hr5nmT6Ijb5kyqi4ndPl6zsQAzEB6teKA8SF3sIJiEIIB998AARdSGL9nA8JsikxfyWGVl9F4eF5RhrIyWjprGjCDhVudyTV4-Fp4by9FXy8"
+    "JA_oyqATl7KA_Hh94bKviqal6KihavguwmEOfyXwJxu7Fob8S1owgUvw8a1dwqp81go12Euw7rx62K1Rw5ew9e4obo4y0iW0wE3QwVwHw7jwh"
+    "u0su02ga0JU0svw3ko3lw4Fwae5Ukwzw28Hw0aqBk00JR801gcS0b8w9G02XS0n-05g4U"
+)
+MODERN_HSDP = "ge97kYJK7-zog2ARNv5m01N4w0c6606Fo0byU0bLU09i8"
+MODERN_HBLP = "045w3u81XE1Ho1cE1no2Tw0gSU13o2Hw0xcw1Mm02TW0e6xa0159w21E0OW0m-0aoyo3Hw12K0fgw38U6y4U0WyE2mw8K5o28w2I809i80J-0WU5y"
+MODERN_SJSP = "ge94Gfbrx_ES40FdsnNlw"
+MODERN_REV = "1048989295"
 
 # ---------------------------------------------------------------------------
 # Fallback token values
@@ -121,10 +139,11 @@ VALID_SEARCH_TYPES = frozenset({
 # ---------------------------------------------------------------------------
 # Sort constants
 # ---------------------------------------------------------------------------
-SORT_RELEVANCY = None  # Omit sortData for server-default relevancy
+SORT_RELEVANCY = None  # Default server sort (Relevancy / Newest without schema errors)
+SORT_RELEVANCY_MONTHLY = "SORT_BY_RELEVANCY_MONTHLY_GROUPED"
 SORT_IMPRESSIONS = "SORT_BY_TOTAL_IMPRESSIONS"
 
-VALID_SORT_MODES = frozenset({None, SORT_IMPRESSIONS})
+VALID_SORT_MODES = frozenset({None, "relevancy", SORT_IMPRESSIONS, SORT_RELEVANCY_MONTHLY})
 
 # ---------------------------------------------------------------------------
 # Media type constants

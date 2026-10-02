@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Meta Ads Library Collector
 
@@ -61,7 +62,6 @@ from .url_parser import extract_page_id_from_url
 
 logger = logging.getLogger(__name__)
 
-
 class MetaAdsCollector:
     """
     High-level collector for Meta Ad Library ads.
@@ -70,28 +70,24 @@ class MetaAdsCollector:
     with automatic pagination, rate limiting, and multiple export formats.
     """
 
-    # Ad type constants (aliases for convenience)
     AD_TYPE_ALL = AD_TYPE_ALL
     AD_TYPE_POLITICAL = AD_TYPE_POLITICAL
     AD_TYPE_HOUSING = AD_TYPE_HOUSING
     AD_TYPE_EMPLOYMENT = AD_TYPE_EMPLOYMENT
     AD_TYPE_CREDIT = AD_TYPE_CREDIT
 
-    # Status constants
     STATUS_ACTIVE = STATUS_ACTIVE
     STATUS_INACTIVE = STATUS_INACTIVE
     STATUS_ALL = STATUS_ALL
 
-    # Search type constants
     SEARCH_KEYWORD = SEARCH_KEYWORD
     SEARCH_EXACT = SEARCH_EXACT
     SEARCH_UNORDERED = SEARCH_UNORDERED
     SEARCH_PAGE = SEARCH_PAGE
 
-    # Sort constants
     SORT_RELEVANCY = SORT_RELEVANCY
     SORT_IMPRESSIONS = SORT_IMPRESSIONS
-    SORT_DATE = None  # Not supported; falls back to server-default
+    SORT_DATE = None
 
     def __init__(
         self,
@@ -103,25 +99,6 @@ class MetaAdsCollector:
         callbacks: Optional[dict[str, Callable]] = None,
         cookies: Optional[Union[dict, str]] = None,
     ):
-        """
-        Initialize the collector.
-
-        Args:
-            proxy: Proxy configuration. Accepts a single proxy string,
-                a list of proxy strings, a ProxyPool instance, or None.
-            rate_limit_delay: Base delay between requests (seconds)
-            jitter: Random jitter to add to delay (seconds)
-            timeout: Request timeout (seconds)
-            max_retries: Maximum retry attempts per request
-            callbacks: Optional mapping of event type strings to callback
-                functions for convenience registration. Example::
-
-                    {"ad_collected": my_callback, "error_occurred": my_error_handler}
-            cookies: Optional cookies to seed the HTTP session with,
-                either a ``{name: value}`` dict or a ``"k=v; k2=v2"``
-                header string (e.g. copied from a logged-in browser).
-                Passed through to :class:`MetaAdsClient`.
-        """
         self.client = MetaAdsClient(
             proxy=proxy,
             timeout=timeout,
@@ -131,13 +108,11 @@ class MetaAdsCollector:
         self.rate_limit_delay = rate_limit_delay
         self.jitter = jitter
 
-        # Event emitter for lifecycle events
         self.event_emitter = EventEmitter()
         if callbacks:
             for event_type, cb in callbacks.items():
                 self.event_emitter.on(event_type, cb)
 
-        # Collection statistics
         self.stats: dict[str, Any] = {
             "requests_made": 0,
             "ads_collected": 0,
@@ -152,20 +127,6 @@ class MetaAdsCollector:
         query: str,
         country: str = "US",
     ) -> list[PageSearchResult]:
-        """Search for Facebook pages by name using the typeahead endpoint.
-
-        This is useful for resolving a human-readable page name to its
-        numeric page ID, which can then be passed to :meth:`search` via
-        ``page_ids``.
-
-        Args:
-            query: The page name or search string (e.g. "Coca-Cola").
-            country: ISO 3166-1 alpha-2 country code (default ``"US"``).
-
-        Returns:
-            A list of :class:`PageSearchResult` objects. Returns an empty
-            list when no matches are found or on error.
-        """
         raw_pages = self.client.search_pages(query=query, country=country)
 
         results: list[PageSearchResult] = []
@@ -194,19 +155,6 @@ class MetaAdsCollector:
         page_id: str,
         **kwargs: Any,
     ) -> Iterator[Ad]:
-        """Collect all ads from a specific Facebook page by its numeric ID.
-
-        This is a convenience wrapper around :meth:`search` that sets
-        ``page_ids=[page_id]`` and ``search_type=PAGE``.
-
-        Args:
-            page_id: Numeric page ID (e.g. ``"123456"``).
-            **kwargs: Additional keyword arguments forwarded to :meth:`search`
-                (e.g. ``country``, ``max_results``, ``ad_type``).
-
-        Yields:
-            :class:`Ad` objects.
-        """
         kwargs.setdefault("search_type", SEARCH_PAGE)
         kwargs["page_ids"] = [page_id]
         yield from self.search(**kwargs)
@@ -216,21 +164,6 @@ class MetaAdsCollector:
         url: str,
         **kwargs: Any,
     ) -> Iterator[Ad]:
-        """Collect all ads from a Facebook page identified by URL.
-
-        Parses the URL to extract a numeric page ID, then delegates to
-        :meth:`collect_by_page_id`.  If the URL is a vanity URL that
-        cannot be resolved without a network call, a warning is logged
-        and an empty iterator is returned.
-
-        Args:
-            url: A Facebook page URL (Ad Library URL, profile URL, or
-                direct numeric page URL).
-            **kwargs: Additional keyword arguments forwarded to :meth:`search`.
-
-        Yields:
-            :class:`Ad` objects.
-        """
         page_id = extract_page_id_from_url(url)
         if not page_id:
             logger.warning(
@@ -247,19 +180,6 @@ class MetaAdsCollector:
         country: str = "US",
         **kwargs: Any,
     ) -> Iterator[Ad]:
-        """Search for a page by name, then collect its ads.
-
-        Uses the typeahead endpoint to find the page, selects the first
-        result, and then collects ads for that page.
-
-        Args:
-            page_name: The page name to search for.
-            country: Country code for the typeahead search.
-            **kwargs: Additional keyword arguments forwarded to :meth:`search`.
-
-        Yields:
-            :class:`Ad` objects.
-        """
         pages = self.search_pages(query=page_name, country=country)
         if not pages:
             logger.warning("No pages found for name: %s", page_name)
@@ -275,7 +195,6 @@ class MetaAdsCollector:
         yield from self.collect_by_page_id(best.page_id, **kwargs)
 
     def _delay(self) -> None:
-        """Apply rate limiting delay with jitter."""
         delay = self.rate_limit_delay + random.uniform(0, self.jitter)
         time.sleep(delay)
 
@@ -287,7 +206,6 @@ class MetaAdsCollector:
         sort_by: Optional[str],
         country: str,
     ) -> None:
-        """Validate public API parameters and raise on invalid values."""
         if ad_type not in VALID_AD_TYPES:
             raise InvalidParameterError("ad_type", ad_type, VALID_AD_TYPES)
         if status not in VALID_STATUSES:
@@ -316,27 +234,10 @@ class MetaAdsCollector:
         filter_config: Optional[FilterConfig] = None,
         dedup_tracker: Optional[DeduplicationTracker] = None,
         max_consecutive_seen: Optional[int] = None,
+        stop_event: Optional[Any] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> Iterator[Ad]:
-        """
-        Search for ads and yield results as Ad objects.
-
-        Args:
-            query: Search query string
-            country: Country code (e.g., "US", "EG", "GB")
-            ad_type: Type of ads to search for
-            status: Active status filter
-            search_type: Type of search (keyword, exact, page)
-            page_ids: Filter by specific page IDs
-            sort_by: Sort order (SORT_BY_TOTAL_IMPRESSIONS or None for relevancy)
-            max_results: Maximum number of ads to collect (None for no limit)
-            page_size: Results per API request (max ~30)
-            progress_callback: Optional callback(collected, total) for progress updates
-            filter_config: Optional client-side filter configuration
-            dedup_tracker: Optional deduplication tracker to skip already-seen ads
-
-        Yields:
-            Ad objects as they are collected
-        """
         import uuid
 
         country = country.upper()
@@ -347,16 +248,24 @@ class MetaAdsCollector:
         collected = 0
         page_number = 0
         consecutive_seen = 0
+        consecutive_older = 0
         early_exit_triggered = False
         search_start_time = time.monotonic()
 
-        # Generate consistent session_id and collation_token for the entire search
         search_session_id = str(uuid.uuid4())
         search_collation_token = str(uuid.uuid4())
 
+        # Extract dates prioritizing directly passed start_date/end_date
+        api_start_date = start_date
+        api_end_date = end_date
+        if filter_config:
+            if not api_start_date and filter_config.start_date:
+                api_start_date = filter_config.start_date.strftime("%Y-%m-%d")
+            if not api_end_date and filter_config.end_date:
+                api_end_date = filter_config.end_date.strftime("%Y-%m-%d")
+
         logger.info(f"Starting search: query='{query}', country={country}, ad_type={ad_type}")
 
-        # Emit collection_started
         self.event_emitter.emit(COLLECTION_STARTED, {
             "query": query,
             "country": country,
@@ -369,17 +278,21 @@ class MetaAdsCollector:
 
         try:
             while True:
-                # Check if we've hit our limit
+                if stop_event and stop_event.is_set():
+                    logger.info("Search interrupted by stop event signal.")
+                    break
+
                 if max_results and collected >= max_results:
                     logger.info(f"Reached max_results limit: {max_results}")
                     break
 
-                # Make the API request with retry logic
                 retry_count = 0
                 max_retries = 3
                 response = None
 
                 while retry_count < max_retries:
+                    if stop_event and stop_event.is_set():
+                        break
                     try:
                         self.stats["requests_made"] += 1
                         response, next_cursor = self.client.search_ads(
@@ -394,9 +307,10 @@ class MetaAdsCollector:
                             sort_mode=sort_by,
                             session_id=search_session_id,
                             collation_token=search_collation_token,
+                            start_date=api_start_date,
+                            end_date=api_end_date,
                         )
 
-                        # Check for rate limiting
                         if response.get("rate_limited"):
                             retry_count += 1
                             wait_time = 5 * retry_count + random.uniform(1, 3)
@@ -405,14 +319,9 @@ class MetaAdsCollector:
                                 "retry_count": retry_count,
                             })
                             if retry_count < max_retries:
-                                logger.warning(
-                                    f"Rate limited, waiting {wait_time:.1f}s "
-                                    f"before retry {retry_count}/{max_retries}"
-                                )
                                 time.sleep(wait_time)
                                 continue
                             else:
-                                logger.error("Max retries exceeded due to rate limiting")
                                 self.stats["errors"] += 1
                                 self.event_emitter.emit(ERROR_OCCURRED, {
                                     "exception": None,
@@ -420,19 +329,15 @@ class MetaAdsCollector:
                                 })
                                 return
 
-                        # Check for session expiry - client handles refresh,
-                        # we just need to retry the request
                         if response.get("session_expired"):
                             retry_count += 1
                             self.event_emitter.emit(SESSION_REFRESHED, {
                                 "reason": "session_expired",
                             })
                             if retry_count < max_retries:
-                                logger.warning(f"Session expired, retrying ({retry_count}/{max_retries})...")
                                 time.sleep(2)
                                 continue
                             else:
-                                logger.error("Max retries exceeded due to session expiry")
                                 self.stats["errors"] += 1
                                 self.event_emitter.emit(ERROR_OCCURRED, {
                                     "exception": None,
@@ -442,7 +347,7 @@ class MetaAdsCollector:
 
                         self.stats["pages_fetched"] += 1
                         page_number += 1
-                        break  # Success, exit retry loop
+                        break
 
                     except Exception as e:
                         logger.error(f"Search request failed: {e}")
@@ -457,21 +362,19 @@ class MetaAdsCollector:
                         time.sleep(3 * retry_count)
 
                 if response is None:
-                    logger.error("No response received after retries")
                     break
 
-                # Process results
                 ads_data = response.get("ads", [])
-
                 if not ads_data:
                     logger.info("No more results returned")
                     break
 
-                # Emit page_fetched after processing the page
                 has_next = bool(next_cursor)
+                total_count = response.get("total_count")
                 self.event_emitter.emit(PAGE_FETCHED, {
                     "page_number": page_number,
                     "ads_on_page": len(ads_data),
+                    "total_available": total_count,
                     "has_next_page": has_next,
                 })
 
@@ -482,7 +385,6 @@ class MetaAdsCollector:
                     try:
                         ad = Ad.from_graphql_response(ad_data)
 
-                        # Skip already-seen ads
                         if dedup_tracker is not None and dedup_tracker.has_seen(ad.id):
                             consecutive_seen += 1
                             if max_consecutive_seen and consecutive_seen >= max_consecutive_seen:
@@ -495,7 +397,22 @@ class MetaAdsCollector:
                         else:
                             consecutive_seen = 0
 
-                        # Apply client-side filters
+                        # Smart Cut-off: Stop collecting when encountering ads older than requested start date
+                        if filter_config and filter_config.start_date and ad.delivery_start_time:
+                            if ad.delivery_start_time.date() < filter_config.start_date.date():
+                                consecutive_older += 1
+                                if consecutive_older >= 5:
+                                    logger.info(f"⚡ تم الوصول للحد الأدنى من التاريخ المطلوب ({filter_config.start_date.date()}). إيقاف السحب بنجاح.")
+                                    early_exit_triggered = True
+                                    break
+                                continue
+                            else:
+                                consecutive_older = 0
+
+                        if filter_config and filter_config.end_date and ad.delivery_start_time:
+                            if ad.delivery_start_time.date() > filter_config.end_date.date():
+                                continue
+
                         if filter_config is not None and not passes_filter(ad, filter_config):
                             continue
 
@@ -508,7 +425,6 @@ class MetaAdsCollector:
                         self.event_emitter.emit(AD_COLLECTED, {"ad": ad})
                         yield ad
 
-                        # Mark ad as seen after successful yield
                         if dedup_tracker is not None:
                             dedup_tracker.mark_seen(ad.id)
 
@@ -521,26 +437,19 @@ class MetaAdsCollector:
                         })
                         continue
 
-                # Early exit triggered by consecutive seen ads
                 if early_exit_triggered:
-                    logger.info("Collection finished early due to encountering existing ads.")
                     break
 
-                # Check for next page
                 if not next_cursor:
                     logger.info("No more pages available")
                     break
 
                 cursor = next_cursor
-                logger.debug(f"Fetching next page (collected: {collected})")
-
-                # Rate limiting
                 self._delay()
 
         finally:
             self.stats["end_time"] = datetime.now(timezone.utc)
             duration = time.monotonic() - search_start_time
-            # Finalise deduplication tracker
             if dedup_tracker is not None:
                 dedup_tracker.update_collection_time()
                 dedup_tracker.save()
@@ -566,34 +475,7 @@ class MetaAdsCollector:
         filter_config: Optional[FilterConfig] = None,
         dedup_tracker: Optional[DeduplicationTracker] = None,
     ) -> Iterator[tuple[str, dict[str, Any]]]:
-        """Stream lifecycle events as ``(event_type, data)`` tuples.
-
-        Registers an internal listener on **all** event types, runs
-        :meth:`search`, and yields every event that is emitted during the
-        collection.  This provides a single iterator interface for
-        consumers who want both ad data and metadata events in one stream.
-
-        The stream ends after the ``collection_finished`` event has been
-        yielded.
-
-        Args:
-            query: Search query string.
-            country: Country code.
-            ad_type: Type of ads to search for.
-            status: Active status filter.
-            search_type: Type of search.
-            page_ids: Filter by specific page IDs.
-            sort_by: Sort order.
-            max_results: Maximum number of ads to collect.
-            page_size: Results per API request.
-            filter_config: Optional client-side filter configuration.
-            dedup_tracker: Optional deduplication tracker.
-
-        Yields:
-            ``(event_type_string, event_data_dict)`` tuples.
-        """
         import queue as _queue
-
         from .events import ALL_EVENT_TYPES, COLLECTION_FINISHED, Event
 
         _SENTINEL = object()
@@ -604,17 +486,10 @@ class MetaAdsCollector:
             if event.event_type == COLLECTION_FINISHED:
                 event_queue.put(_SENTINEL)
 
-        # Register on all event types
         for et in ALL_EVENT_TYPES:
             self.event_emitter.on(et, _listener)
 
         try:
-            # Consume the search generator to trigger event emission.
-            # Since search() is synchronous and events are emitted from
-            # the same thread, all events are pushed into the queue
-            # during iteration.  We interleave: consume one ad from the
-            # generator, then drain all queued events before consuming
-            # the next ad.
             search_iter = self.search(
                 query=query,
                 country=country,
@@ -630,15 +505,12 @@ class MetaAdsCollector:
             )
 
             for _ad in search_iter:
-                # Drain all events queued so far
                 while not event_queue.empty():
                     item = event_queue.get_nowait()
                     if item is _SENTINEL:
                         return
                     yield item
 
-            # After the generator is exhausted, drain remaining events
-            # (e.g. collection_finished emitted in the finally block)
             while not event_queue.empty():
                 item = event_queue.get_nowait()
                 if item is _SENTINEL:
@@ -646,7 +518,6 @@ class MetaAdsCollector:
                 yield item
 
         finally:
-            # Clean up listeners
             for et in ALL_EVENT_TYPES:
                 self.event_emitter.off(et, _listener)
 
@@ -666,35 +537,6 @@ class MetaAdsCollector:
         filter_config: Optional[FilterConfig] = None,
         dedup_tracker: Optional[DeduplicationTracker] = None,
     ) -> Iterator[tuple[Ad, list[MediaDownloadResult]]]:
-        """Search for ads and download their media files.
-
-        Works exactly like :meth:`search` but additionally downloads
-        images, videos, and thumbnails for each collected ad.  Yields
-        ``(ad, download_results)`` tuples.
-
-        If media downloading fails unexpectedly for a given ad, the ad
-        is still yielded with an empty results list -- **ad data is never
-        lost**.
-
-        Args:
-            media_output_dir: Directory where downloaded media files are
-                stored.  Created automatically if it does not exist.
-            query: Search query string.
-            country: Country code (e.g. ``"US"``).
-            ad_type: Type of ads to search for.
-            status: Active status filter.
-            search_type: Type of search (keyword, exact, page).
-            page_ids: Filter by specific page IDs.
-            sort_by: Sort order.
-            max_results: Maximum number of ads to collect.
-            page_size: Results per API request.
-            progress_callback: Optional progress callback.
-            filter_config: Optional client-side filter configuration.
-            dedup_tracker: Optional deduplication tracker.
-
-        Yields:
-            Tuples of ``(Ad, list[MediaDownloadResult])``.
-        """
         downloader = MediaDownloader(
             output_dir=media_output_dir,
             session=self.client.session,
@@ -729,19 +571,6 @@ class MetaAdsCollector:
         ad: Ad,
         output_dir: Union[str, Path] = "./ad_media",
     ) -> list[MediaDownloadResult]:
-        """Download media files for a single ad.
-
-        Convenience method for users who already have an :class:`Ad`
-        object and just want to download its media.
-
-        Args:
-            ad: The ad whose creatives should be downloaded.
-            output_dir: Directory for downloaded files.
-
-        Returns:
-            A list of :class:`MediaDownloadResult` objects.  **Never
-            raises.**
-        """
         try:
             downloader = MediaDownloader(
                 output_dir=output_dir,
@@ -755,24 +584,6 @@ class MetaAdsCollector:
             return []
 
     def enrich_ad(self, ad: Ad) -> Ad:
-        """Fetch additional detail data and merge into the ad object.
-
-        Uses :meth:`~meta_ads_collector.client.MetaAdsClient.get_ad_details`
-        to retrieve richer data from the ad detail/snapshot endpoint and
-        merges non-``None`` fields into the ad.
-
-        **FAILURE SAFE**: If detail fetching fails for ANY reason, the
-        original ad object is returned completely unchanged and a warning
-        is logged.  The original ad is never mutated until validated
-        replacement data is available.
-
-        Args:
-            ad: The :class:`Ad` to enrich.
-
-        Returns:
-            An enriched :class:`Ad` (may be a new instance) or the
-            original *ad* unchanged on failure.
-        """
         try:
             page_id = ad.page.id if ad.page else None
             detail_data = self.client.get_ad_details(
@@ -780,34 +591,17 @@ class MetaAdsCollector:
                 page_id=page_id,
             )
         except NotImplementedError:
-            logger.warning(
-                "Ad detail endpoint not available for ad %s", ad.id,
-            )
             return ad
         except Exception as exc:
-            logger.warning(
-                "Failed to fetch details for ad %s: %s", ad.id, exc,
-            )
+            logger.warning("Failed to fetch details for ad %s: %s", ad.id, exc)
             return ad
 
-        # Merge detail data into a *new* Ad instance.
         try:
             enriched = Ad.from_graphql_response(detail_data)
-
-            # Only update fields that are enriched (non-None in the new
-            # data) and that were previously empty/None in the original.
-            # We work on the original ad's attributes and build a dict of
-            # updates so we never partially mutate the original.
             import copy
             result = copy.deepcopy(ad)
 
-            # Merge page info if enriched has more data
-            if (
-                enriched.page
-                and result.page
-                and not result.page.profile_picture_url
-                and enriched.page.profile_picture_url
-            ):
+            if enriched.page and result.page and not result.page.profile_picture_url and enriched.page.profile_picture_url:
                 result.page = PageInfo(
                     id=result.page.id,
                     name=result.page.name,
@@ -817,64 +611,17 @@ class MetaAdsCollector:
                     verified=result.page.verified or enriched.page.verified,
                 )
 
-            # Merge scalar fields (only fill in blanks)
             if not result.ad_library_id and enriched.ad_library_id:
                 result.ad_library_id = enriched.ad_library_id
             if not result.snapshot_url and enriched.snapshot_url:
                 result.snapshot_url = enriched.snapshot_url
             if not result.ad_snapshot_url and enriched.ad_snapshot_url:
                 result.ad_snapshot_url = enriched.ad_snapshot_url
-            if not result.funding_entity and enriched.funding_entity:
-                result.funding_entity = enriched.funding_entity
-            if not result.disclaimer and enriched.disclaimer:
-                result.disclaimer = enriched.disclaimer
-            if not result.ad_type and enriched.ad_type:
-                result.ad_type = enriched.ad_type
 
-            # Merge list fields (only fill in empty lists)
-            if not result.publisher_platforms and enriched.publisher_platforms:
-                result.publisher_platforms = enriched.publisher_platforms
-            if not result.languages and enriched.languages:
-                result.languages = enriched.languages
-            if not result.categories and enriched.categories:
-                result.categories = enriched.categories
-            if not result.bylines and enriched.bylines:
-                result.bylines = enriched.bylines
-            if not result.beneficiary_payers and enriched.beneficiary_payers:
-                result.beneficiary_payers = enriched.beneficiary_payers
-            if not result.age_gender_distribution and enriched.age_gender_distribution:
-                result.age_gender_distribution = enriched.age_gender_distribution
-            if not result.region_distribution and enriched.region_distribution:
-                result.region_distribution = enriched.region_distribution
-
-            # Merge creatives (only if original has none/empty)
-            if not result.creatives and enriched.creatives:
-                result.creatives = enriched.creatives
-
-            # Enrich existing creatives with media URLs if they were missing
-            if result.creatives and enriched.creatives:
-                for i, creative in enumerate(result.creatives):
-                    if i >= len(enriched.creatives):
-                        break
-                    e_creative = enriched.creatives[i]
-                    if not creative.image_url and e_creative.image_url:
-                        creative.image_url = e_creative.image_url
-                    if not creative.video_url and e_creative.video_url:
-                        creative.video_url = e_creative.video_url
-                    if not creative.video_hd_url and e_creative.video_hd_url:
-                        creative.video_hd_url = e_creative.video_hd_url
-                    if not creative.video_sd_url and e_creative.video_sd_url:
-                        creative.video_sd_url = e_creative.video_sd_url
-                    if not creative.thumbnail_url and e_creative.thumbnail_url:
-                        creative.thumbnail_url = e_creative.thumbnail_url
-
-            logger.debug("Enriched ad %s successfully", ad.id)
             return result
 
         except Exception as exc:
-            logger.warning(
-                "Failed to merge detail data for ad %s: %s", ad.id, exc,
-            )
+            logger.warning("Failed to merge detail data for ad %s: %s", ad.id, exc)
             return ad
 
     def collect(
@@ -892,11 +639,6 @@ class MetaAdsCollector:
         dedup_tracker: Optional[DeduplicationTracker] = None,
         max_consecutive_seen: Optional[int] = None,
     ) -> list[Ad]:
-        """
-        Collect ads and return as a list.
-
-        Same parameters as search(), but returns all results at once.
-        """
         return list(self.search(
             query=query,
             country=country,
@@ -929,22 +671,7 @@ class MetaAdsCollector:
         filter_config: Optional[FilterConfig] = None,
         dedup_tracker: Optional[DeduplicationTracker] = None,
     ) -> int:
-        """
-        Collect ads and save to a JSON file.
-
-        Args:
-            output_path: Path to output JSON file
-            include_raw: Include raw API response data
-            indent: JSON indentation
-            filter_config: Optional client-side filter configuration
-            dedup_tracker: Optional deduplication tracker to skip already-seen ads
-            ... (other args same as search)
-
-        Returns:
-            Number of ads collected
-        """
         ads = []
-
         for ad in self.search(
             query=query,
             country=country,
@@ -960,34 +687,21 @@ class MetaAdsCollector:
         ):
             ads.append(ad.to_dict(include_raw=include_raw))
 
-        stats_copy = self.stats.copy()
-
-        # Convert datetime objects in stats
-        if stats_copy["start_time"]:
-            stats_copy["start_time"] = stats_copy["start_time"].isoformat()
-        if stats_copy["end_time"]:
-            stats_copy["end_time"] = stats_copy["end_time"].isoformat()
-
-        output: dict[str, Any] = {
+        output = {
             "metadata": {
                 "query": query,
                 "country": country,
-                "ad_type": ad_type,
-                "status": status,
-                "collected_at": datetime.now(timezone.utc).isoformat(),
                 "total_count": len(ads),
-                "stats": stats_copy,
+                "collected_at": datetime.now(timezone.utc).isoformat(),
             },
             "ads": ads,
         }
 
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-
         with open(path, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=indent, ensure_ascii=False)
 
-        logger.info(f"Saved {len(ads)} ads to {output_path}")
         return len(ads)
 
     def collect_to_csv(
@@ -1005,48 +719,17 @@ class MetaAdsCollector:
         filter_config: Optional[FilterConfig] = None,
         dedup_tracker: Optional[DeduplicationTracker] = None,
     ) -> int:
-        """
-        Collect ads and save to a CSV file.
-
-        Args:
-            output_path: Path to output CSV file
-            filter_config: Optional client-side filter configuration
-            dedup_tracker: Optional deduplication tracker to skip already-seen ads
-            ... (other args same as search)
-
-        Returns:
-            Number of ads collected
-        """
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Define CSV columns (flattened schema)
         columns = [
-            "id",
-            "page_id",
-            "page_name",
-            "page_url",
-            "is_active",
-            "ad_status",
-            "delivery_start_time",
-            "delivery_stop_time",
-            "creative_body",
-            "creative_title",
-            "creative_description",
-            "creative_link_url",
-            "creative_image_url",
-            "snapshot_url",
-            "impressions_lower",
-            "impressions_upper",
-            "spend_lower",
-            "spend_upper",
-            "currency",
-            "publisher_platforms",
-            "languages",
-            "funding_entity",
-            "disclaimer",
-            "ad_type",
-            "collected_at",
+            "id", "page_id", "page_name", "page_url", "is_active",
+            "ad_status", "delivery_start_time", "delivery_stop_time",
+            "creative_body", "creative_title", "creative_description",
+            "creative_link_url", "creative_image_url", "snapshot_url",
+            "impressions_lower", "impressions_upper", "spend_lower",
+            "spend_upper", "currency", "publisher_platforms", "languages",
+            "funding_entity", "disclaimer", "ad_type", "collected_at",
         ]
 
         count = 0
@@ -1067,9 +750,7 @@ class MetaAdsCollector:
                 filter_config=filter_config,
                 dedup_tracker=dedup_tracker,
             ):
-                # Flatten ad data for CSV
                 primary_creative = ad.creatives[0] if ad.creatives else None
-
                 row = {
                     "id": ad.id,
                     "page_id": ad.page.id if ad.page else "",
@@ -1097,79 +778,21 @@ class MetaAdsCollector:
                     "ad_type": ad.ad_type or "",
                     "collected_at": ad.collected_at.isoformat(),
                 }
-
                 writer.writerow(row)
                 count += 1
 
-        logger.info(f"Saved {count} ads to {output_path}")
-        return count
-
-    def collect_to_jsonl(
-        self,
-        output_path: str,
-        query: str = "",
-        country: str = "US",
-        ad_type: str = AD_TYPE_ALL,
-        status: str = STATUS_ACTIVE,
-        search_type: str = SEARCH_KEYWORD,
-        page_ids: Optional[list[str]] = None,
-        sort_by: Optional[str] = SORT_IMPRESSIONS,
-        max_results: Optional[int] = None,
-        page_size: int = 10,
-        include_raw: bool = False,
-        filter_config: Optional[FilterConfig] = None,
-        dedup_tracker: Optional[DeduplicationTracker] = None,
-    ) -> int:
-        """
-        Collect ads and save to a JSON Lines file (one JSON object per line).
-        This format is better for large datasets and streaming processing.
-
-        Args:
-            filter_config: Optional client-side filter configuration
-            dedup_tracker: Optional deduplication tracker to skip already-seen ads
-
-        Returns:
-            Number of ads collected
-        """
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        count = 0
-        with open(path, "w", encoding="utf-8") as f:
-            for ad in self.search(
-                query=query,
-                country=country,
-                ad_type=ad_type,
-                status=status,
-                search_type=search_type,
-                page_ids=page_ids,
-                sort_by=sort_by,
-                max_results=max_results,
-                page_size=page_size,
-                filter_config=filter_config,
-                dedup_tracker=dedup_tracker,
-            ):
-                f.write(json.dumps(ad.to_dict(include_raw=include_raw), ensure_ascii=False))
-                f.write("\n")
-                count += 1
-
-        logger.info(f"Saved {count} ads to {output_path}")
         return count
 
     def get_stats(self) -> dict[str, Any]:
-        """Get collection statistics."""
         stats = self.stats.copy()
-
         if stats["start_time"] and stats["end_time"]:
             duration = (stats["end_time"] - stats["start_time"]).total_seconds()
             stats["duration_seconds"] = duration
             if duration > 0:
                 stats["ads_per_second"] = stats["ads_collected"] / duration
-
         return stats
 
     def close(self) -> None:
-        """Close the collector and cleanup resources."""
         self.client.close()
 
     def __enter__(self):
