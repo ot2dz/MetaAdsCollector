@@ -88,10 +88,15 @@
           <span class="font-bold">مزامنة تكتيكية (سحب تلقائي COD 58 ولاية)</span>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <span class="bg-surface-container-low px-2 py-0.5 font-mono text-on-surface font-bold" id="header-ads-count">0 إعلان متجر</span>
           <span class="text-outline-variant">|</span>
           <span class="bg-surface-container-low px-2 py-0.5 font-mono text-on-surface font-bold" id="header-stores-count">0 متجر نشط</span>
+          <span class="text-outline-variant">|</span>
+          <!-- Facebook Total Available for Current Query -->
+          <span class="bg-emerald-950/10 text-primary border border-primary/30 px-2 py-0.5 font-mono font-bold text-xs" title="إجمالي الإعلانات النشطة بفيسبوك للكلمة المفتاحية الحالية">
+            بفيسبوك: <strong id="header-total-available" class="text-emerald-700">0</strong>
+          </span>
         </div>
 
         <!-- Outbound IP Telemetry Badge -->
@@ -593,6 +598,14 @@
               loadedAds.unshift(ad);
               renderDiscoveryCards();
             }
+          } else if (item.type === "page_fetched") {
+            // Live update for total ads available on Facebook for the search query
+            const totalAvail = item.data.total_available;
+            if (totalAvail !== undefined && totalAvail !== null) {
+              const formatted = Number(totalAvail).toLocaleString();
+              const headerEl = document.getElementById("header-total-available");
+              if (headerEl) headerEl.innerText = `${formatted} إعلان`;
+            }
           } else if (item.type === "log") {
             appendLog(item.data.text);
           } else if (item.type === "started") {
@@ -624,6 +637,12 @@
         const statusRes = await fetch("/api/status");
         const status = await statusRes.json();
         setEngineState(status.is_running);
+
+        if (status.total_available !== undefined && status.total_available !== null) {
+          const formatted = Number(status.total_available).toLocaleString();
+          const headerEl = document.getElementById("header-total-available");
+          if (headerEl) headerEl.innerText = `${formatted} إعلان`;
+        }
         
         if (status.duration_seconds) {
           const m = Math.floor(status.duration_seconds / 60).toString().padStart(2, '0');
