@@ -599,12 +599,17 @@
               renderDiscoveryCards();
             }
           } else if (item.type === "page_fetched") {
-            // Live update for total ads available on Facebook for the search query
-            const totalAvail = item.data.total_available;
-            if (totalAvail !== undefined && totalAvail !== null) {
-              const formatted = Number(totalAvail).toLocaleString();
+            // Display Peak Total and Remaining ads clearly
+            const initialTotal = item.data.total_available_initial || item.data.total_available;
+            const remaining = item.data.remaining_count;
+            if (initialTotal) {
               const headerEl = document.getElementById("header-total-available");
-              if (headerEl) headerEl.innerText = `${formatted} إعلان`;
+              if (headerEl) {
+                headerEl.innerText = `${Number(initialTotal).toLocaleString()} إعلان`;
+                if (remaining !== undefined) {
+                  headerEl.title = `إجمالي فيسبوك الأولي: ${Number(initialTotal).toLocaleString()} | المتبقي في خوادمهم: ${Number(remaining).toLocaleString()}`;
+                }
+              }
             }
           } else if (item.type === "log") {
             appendLog(item.data.text);

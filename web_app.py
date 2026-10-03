@@ -194,10 +194,21 @@ class CollectionManager:
             def on_started(evt: Event):
                 self.event_queue.put({"type": "started", "data": evt.data})
 
+            initial_reported_total = None
+
             def on_page(evt: Event):
+                nonlocal initial_reported_total
                 self.stats["pages_fetched"] = evt.data.get("page_number", 0)
-                if evt.data.get("total_available"):
-                    self.stats["total_available"] = evt.data.get("total_available")
+                current_count = evt.data.get("total_available")
+                
+                # Keep the peak initial total reported on page 1
+                if current_count:
+                    if initial_reported_total is None or current_count > initial_reported_total:
+                        initial_reported_total = current_count
+                    self.stats["total_available"] = initial_reported_total
+                    evt.data["total_available_initial"] = initial_reported_total
+                    evt.data["remaining_count"] = current_count
+
                 self.event_queue.put({"type": "page_fetched", "data": evt.data})
 
             def on_ad(evt: Event):
@@ -266,8 +277,10 @@ class CollectionManager:
                 dedup_tracker = DeduplicationTracker(mode="persistent", db_path=db_path)
                 max_consecutive_seen = int(config.get("max_consecutive_seen", 25))
 
-            max_results = int(config.get("max_results")) if config.get("max_results") else None
-            page_size = int(config.get("page_size", 10))
+            # If max_results is empty or 0, collect EVERYTHING until the last page
+            raw_max = config.get("max_results")
+            max_results = int(raw_max) if (raw_max and int(raw_max) > 0) else None
+            page_size = int(config.get("page_size", 30))
             page_ids = [p.strip() for p in config.get("page_ids", "").split(",") if p.strip()] or None
 
             search_generator = self.collector.search(

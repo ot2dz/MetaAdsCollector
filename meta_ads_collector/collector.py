@@ -282,8 +282,9 @@ class MetaAdsCollector:
                     logger.info("Search interrupted by stop event signal.")
                     break
 
-                if max_results and collected >= max_results:
-                    logger.info(f"Reached max_results limit: {max_results}")
+                # Only stop if max_results is explicitly provided and greater than 0
+                if max_results and max_results > 0 and collected >= max_results:
+                    logger.info(f"Reached user-defined max_results limit: {max_results}")
                     break
 
                 retry_count = 0
@@ -440,11 +441,13 @@ class MetaAdsCollector:
                 if early_exit_triggered:
                     break
 
-                if not next_cursor:
-                    logger.info("No more pages available")
+                # Continue fetching next pages until Facebook has no more cursors (Full Drain)
+                if not next_cursor or not has_next:
+                    logger.info(f"Full Drain Completed: All available pages fetched from Facebook. Total raw collected: {collected}")
                     break
 
                 cursor = next_cursor
+                logger.info(f"Advancing to next page via cursor: {cursor[:20]}... (Total collected so far: {collected})")
                 self._delay()
 
         finally:
